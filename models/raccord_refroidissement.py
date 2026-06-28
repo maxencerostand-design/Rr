@@ -21,7 +21,8 @@ from lib.export import save
 # ---------------------------------------------------------------------------
 # Parametres (mm)
 # ---------------------------------------------------------------------------
-DEMI_ANGLE = 30.0   # angle de chaque entree par rapport a l'axe de sortie
+FORME = "T"         # "Y" (deux entrees a +-DEMI_ANGLE) ou "T" (run droit + branche a 90 deg)
+DEMI_ANGLE = 30.0   # (forme Y) angle de chaque entree par rapport a l'axe de sortie
 RAYON_HUB = 6.0     # rayon de la sphere centrale qui fusionne les 3 conduits
 
 # Embout pour durite Ø int. 10 mm (les deux entrees)
@@ -87,19 +88,26 @@ def make_bore(p: dict, H: float):
 
 
 def oriented(solid, kind: str):
-    """Place un solide construit le long de +Z sur son axe final.
+    """Place un solide construit le long de +Z (base a l'origine) sur son axe final.
 
-    'out'  : sortie, pointe vers -Z
-    'inA'  : entree inclinee vers +X
-    'inB'  : entree inclinee vers -X
+    'out' : sortie Ø8, pointe vers -Z
+    'inA' / 'inB' : les deux entrees Ø10, selon FORME.
+      - Y : inA a +DEMI_ANGLE, inB a -DEMI_ANGLE (deux bras en biais)
+      - T : inA dans l'axe (+Z, run droit avec la sortie), inB a 90 deg (+X)
     """
     if kind == "out":
         return solid.rotate((0, 0, 0), (1, 0, 0), 180)
-    if kind == "inA":
-        return solid.rotate((0, 0, 0), (0, 1, 0), DEMI_ANGLE)
-    if kind == "inB":
-        return solid.rotate((0, 0, 0), (0, 1, 0), -DEMI_ANGLE)
-    raise ValueError(kind)
+    if FORME == "Y":
+        if kind == "inA":
+            return solid.rotate((0, 0, 0), (0, 1, 0), DEMI_ANGLE)
+        if kind == "inB":
+            return solid.rotate((0, 0, 0), (0, 1, 0), -DEMI_ANGLE)
+    elif FORME == "T":
+        if kind == "inA":
+            return solid                                    # run droit, +Z
+        if kind == "inB":
+            return solid.rotate((0, 0, 0), (0, 1, 0), 90)   # branche laterale, +X
+    raise ValueError(f"{FORME}/{kind}")
 
 
 def build():
@@ -125,5 +133,5 @@ def build():
 if __name__ == "__main__":
     model = build()
     bb = model.val().BoundingBox()
-    print(f"Encombrement (mm): X {bb.xlen:.1f}  Y {bb.ylen:.1f}  Z {bb.zlen:.1f}")
-    save(model, "raccord_Y_refroidissement")
+    print(f"Forme {FORME} - Encombrement (mm): X {bb.xlen:.1f}  Y {bb.ylen:.1f}  Z {bb.zlen:.1f}")
+    save(model, f"raccord_{FORME}_refroidissement")
