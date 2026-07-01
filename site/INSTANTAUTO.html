@@ -198,6 +198,8 @@
   }
   .banner svg{width:18px;height:18px;flex-shrink:0;color:var(--amber);margin-top:1px}
   .banner b{color:#ff6b6b}
+  .banner-ok{background:linear-gradient(100deg,rgba(55,196,109,.12),rgba(55,196,109,.03));border-color:rgba(55,196,109,.3);color:#bfeccd}
+  .banner-ok b{color:#37c46d}
 
   .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-weight:700;font-size:13.5px;padding:12px 20px;border-radius:11px;opacity:0;transition:.3s;z-index:100;box-shadow:var(--shadow)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -509,7 +511,7 @@ function viewDashboard(m){
       <div class="month-pick"><span>Mois</span><input type="month" value="${dashMonth}" onchange="dashMonth=this.value;render()"></div>
     </div>
 
-    ${dashBanner()}
+    <div id="saveBanner"></div>
 
     <div class="gauge-wrap">
       <div class="gauge-top">
@@ -553,26 +555,47 @@ function viewDashboard(m){
       ${benefitChart()}
     </div>
   `;
+  updateSaveBanner();
 }
 
-// ---- Bandeau d'info du tableau de bord (adapté à l'état de sauvegarde) ----
-function dashBanner(){
-  if(cloudEnabled && cloudUser){
-    return `<div class="banner" style="background:linear-gradient(100deg,rgba(55,196,109,.12),rgba(55,196,109,.03));border-color:rgba(55,196,109,.3);color:#bfeccd">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#37c46d" stroke-width="2" style="color:#37c46d"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="m9 15 2 2 4-4"/></svg>
-      <div><b style="color:#37c46d">Synchronisé dans le cloud.</b> Tes données sont enregistrées automatiquement à chaque modification et accessibles depuis tous tes appareils. Rien à faire — tu peux fermer l'app quand tu veux.</div>
-    </div>`;
-  }
+// ---- Voyant de sauvegarde : rouge seulement s'il y a un problème,
+//      sinon un court message vert rassurant qui s'efface tout seul. ----
+let lastCloudState=null;   // 'saving' | 'online' | 'error' | 'offline' | 'login'
+let bannerHideTimer=null;
+function updateSaveBanner(){
+  const el=document.getElementById('saveBanner');
+  if(!el) return;
+  clearTimeout(bannerHideTimer);
+  el.style.transition=''; el.style.opacity='';
+
+  // Diagnostic : 'ok' (tout va bien) · 'saving' (en cours) · 'problem' (voyant rouge)
+  let health='ok', msg='';
   if(cloudEnabled){
-    return `<div class="banner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-      <div>Tu n'es pas connecté au cloud : tes données restent enregistrées dans ce navigateur, mais ne sont pas synchronisées. Connecte-toi (Réglages → Cloud) pour les sauvegarder en ligne.</div>
-    </div>`;
+    if(!cloudUser){ health='problem'; msg="Tu n'es pas connecté au cloud — tes dernières modifications ne sont pas encore synchronisées. Ouvre <b>Réglages → Cloud</b> pour te reconnecter."; }
+    else if(lastCloudState==='error'){ health='problem'; msg="La synchronisation a échoué (vérifie ta connexion internet). Tes données sont gardées sur cet appareil et repartiront automatiquement dès que possible."; }
+    else if(lastCloudState==='saving'){ health='saving'; }
   }
-  return `<div class="banner">
+
+  if(health==='problem'){
+    // Voyant allumé : reste affiché tant que ce n'est pas réglé.
+    el.innerHTML=`<div class="banner">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-      <div>Tes données sont enregistrées automatiquement dans ce navigateur, sur cet ordinateur. Pour ne rien risquer, active la <b>Sauvegarde auto</b> (en bas à gauche) : chaque modification est aussi écrite <b>en direct dans un fichier</b> de ton choix. À défaut, clique de temps en temps sur <b>Export manuel</b> pour obtenir un fichier de secours ré-importable.</div>
-    </div>`;
+      <div><b>Sauvegarde à vérifier.</b> ${msg}</div></div>`;
+    el.style.display='';
+  }else if(health==='saving'){
+    // Transitoire : rien d'alarmant, on laisse l'écran propre.
+    el.style.display='none'; el.innerHTML='';
+  }else{
+    // Tout va bien : petit message vert rassurant, puis disparition automatique.
+    el.innerHTML=`<div class="banner banner-ok">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#37c46d" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="m9 15 2 2 4-4"/></svg>
+      <div>${cloudEnabled?'Sauvegardé dans le cloud ✓':'Données enregistrées ✓'}</div></div>`;
+    el.style.display='';
+    bannerHideTimer=setTimeout(()=>{
+      el.style.transition='opacity .5s'; el.style.opacity='0';
+      setTimeout(()=>{ el.style.display='none'; el.innerHTML=''; el.style.opacity=''; el.style.transition=''; },500);
+    },3500);
+  }
 }
 
 // ---- Graphique bénéfice net par mois (SVG, sans dépendance) ----
@@ -1092,6 +1115,7 @@ function updateCloudUI(state){
     error:  ['var(--red)','Cloud : erreur de synchro']
   };
   const [c,t]=map[state]||map.offline; dot.style.background=c; txt.textContent=t;
+  lastCloudState=state; updateSaveBanner();
 }
 function cloudErr(e){ return e && e.code ? e.code.replace('auth/','').replace(/-/g,' ') : 'erreur'; }
 
