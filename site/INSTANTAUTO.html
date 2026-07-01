@@ -500,14 +500,14 @@ function viewDashboard(m){
   const net = caMonth - extrasMonth - (+s.fixed) - partsMonth;
   const unpaid = DB.invoices.filter(i=>i.paid==='Non'||i.paid===false).reduce((s,i)=>s+invoiceTotal(i),0);
 
-  const aheadBehind = moMonth - targetCum;
-  const pct = Math.max(0,Math.min(100, targetCum>0 ? (moMonth/targetCum*100) : (moMonth>0?100:0)));
+  const aheadBehind = net - targetCum;
+  const pct = Math.max(0,Math.min(100, targetCum>0 ? (net/targetCum*100) : (net>0?100:0)));
   const onTrack = aheadBehind>=0;
 
   m.innerHTML = `
     <div class="page-head">
       <div><div class="eyebrow">INSTANTAUTO · ATELIER</div><h2>Tableau de bord</h2>
-        <p>Ta journée est rentable quand la main-d'œuvre facturée dépasse le seuil. Le reste, c'est du bénéfice.</p></div>
+        <p>Ta journée est rentable quand ton <b>bénéfice net</b> du jour dépasse le seuil fixé.</p></div>
       <div class="month-pick"><span>Mois</span><input type="month" value="${dashMonth}" onchange="dashMonth=this.value;render()"></div>
     </div>
 
@@ -518,10 +518,10 @@ function viewDashboard(m){
         <span class="gauge-title">Seuil du jour à atteindre</span>
         <span class="gauge-day mono">${elapsed} jours ouvrés écoulés</span>
       </div>
-      <div class="gauge-val mono">${euro0(targetDay)}<span style="font-size:18px;color:var(--ink-faint);font-weight:600"> / jour de M.O.</span></div>
-      <div class="gauge-sub">soit ${euro0(targetMonth)} de bénéfice à dégager sur le mois (${s.fixed} € de charges${(+s.salary)>0?` + ${s.salary} € de paye`:''}, sur ${s.days} jours)</div>
+      <div class="gauge-val mono">${euro0(targetDay)}<span style="font-size:18px;color:var(--ink-faint);font-weight:600"> / jour de bénéfice</span></div>
+      <div class="gauge-sub">soit ${euro0(targetMonth)} de bénéfice net à viser sur le mois (${s.fixed} € de charges${(+s.salary)>0?` + ${s.salary} € de paye`:''} ÷ ${s.days} jours ouvrés)</div>
       <div class="meter"><div class="meter-fill" style="width:${pct}%;background:${onTrack?'linear-gradient(90deg,var(--green-deep),var(--green))':'linear-gradient(90deg,var(--amber-deep),var(--amber))'}"></div></div>
-      <div class="meter-marks"><span>M.O. réalisée : ${euro0(moMonth)}</span><span>Objectif à ce jour : ${euro0(targetCum)}</span></div>
+      <div class="meter-marks"><span>Bénéfice réalisé : ${euro0(net)}</span><span>Objectif à ce jour : ${euro0(targetCum)}</span></div>
       <div style="margin-top:16px;display:flex;align-items:center;gap:10px">
         <span class="tag ${onTrack?'tag-t1':'tag-t3'}" style="font-size:12.5px;padding:5px 13px">${onTrack?'✓ Dans les temps / en avance':'⚠ En retard sur l’objectif'}</span>
         <span class="mono" style="font-size:15px;font-weight:700;color:${onTrack?'var(--green)':'var(--red)'}">${aheadBehind>=0?'+':''}${euro0(aheadBehind)}</span>
