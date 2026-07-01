@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INSTANTAUTO — Atelier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    /* ---- Palette NOIR · ROUGE · BLANC ---- */
+    --bg:#0b0b0d;
+    --panel:#151518;
+    --panel-2:#1e1e23;
+    --line:#2d2d34;
+    --line-soft:#232329;
+    --ink:#f3f4f6;
+    --ink-dim:#a4a4ae;
+    --ink-faint:#66666f;
+    --amber:#e21414;        /* ROUGE — identité (nom conservé pour compatibilité du code) */
+    --amber-deep:#b30f0f;
+    --green:#37c46d;        /* conservé pour les signaux « argent positif / payé / dans les temps » */
+    --green-deep:#249a52;
+    --red:#ff5a52;          /* rouge alerte (plus clair que le rouge d'identité) */
+    --blue:#cfd2d9;         /* neutre clair (ex-bleu) */
+    --radius:14px;
+    --shadow:0 18px 40px -22px rgba(0,0,0,.85);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Archivo',system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(226,20,20,.08), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    line-height:1.45;
+  }
+  .mono{font-family:'Spline Sans Mono',monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- Shell ---------- */
+  .shell{display:flex;min-height:100vh}
+  .rail{
+    width:240px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+    padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 20px}
+  .logo{
+    width:38px;height:38px;border-radius:10px;flex-shrink:0;position:relative;
+    background:linear-gradient(135deg,var(--amber),var(--amber-deep));
+    display:grid;place-items:center;color:#fff;font-weight:900;font-size:18px;
+    box-shadow:0 6px 16px -6px rgba(226,20,20,.7);
+  }
+  .brand h1{font-size:16px;font-weight:800;letter-spacing:.06em}
+  .brand span{display:block;font-size:10px;color:var(--ink-faint);letter-spacing:.22em;font-weight:600}
+  .navlink{
+    display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;
+    color:var(--ink-dim);font-weight:600;font-size:14.5px;cursor:pointer;border:1px solid transparent;
+    transition:.15s;user-select:none;
+  }
+  .navlink:hover{background:var(--panel-2);color:var(--ink)}
+  .navlink.active{background:var(--panel-2);color:var(--ink);border-color:var(--line)}
+  .navlink.active .ic{color:var(--amber)}
+  .ic{width:19px;height:19px;flex-shrink:0;color:var(--ink-faint);transition:.15s}
+  .rail-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:8px}
+  .save-state{font-size:11px;color:var(--ink-faint);display:flex;align-items:center;gap:7px;padding:0 8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(55,196,109,.18)}
+
+  .main{flex:1;min-width:0;padding:30px 38px 70px;max-width:1180px}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px;flex-wrap:wrap}
+  .page-head h2{font-size:27px;font-weight:800;letter-spacing:-.01em}
+  .eyebrow{font-size:11px;letter-spacing:.24em;color:var(--amber);font-weight:700;margin-bottom:6px}
+  .page-head p{color:var(--ink-dim);font-size:13.5px;margin-top:3px;max-width:560px}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    font-family:inherit;font-weight:700;font-size:13.5px;border-radius:10px;padding:11px 17px;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer;transition:.15s;
+    display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--ink-faint)}
+  .btn-amber{background:linear-gradient(135deg,var(--amber),var(--amber-deep));color:#fff;border:none}
+  .btn-amber:hover{filter:brightness(1.08)}
+  .btn-ghost{background:transparent}
+  .btn svg{width:16px;height:16px}
+  .btn-sm{padding:7px 11px;font-size:12px;border-radius:8px}
+  .btn-danger:hover{border-color:var(--red);color:var(--red)}
+
+  /* ---------- Cards / gauge ---------- */
+  .grid{display:grid;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .card-lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:12px}
+
+  .gauge-wrap{
+    background:linear-gradient(180deg,var(--panel),#101013);
+    border:1px solid var(--line);border-radius:18px;padding:26px 28px;position:relative;overflow:hidden;
+  }
+  .gauge-wrap::before{
+    content:"";position:absolute;inset:0;opacity:.5;
+    background:repeating-linear-gradient(135deg,transparent,transparent 11px,rgba(255,255,255,.012) 11px,rgba(255,255,255,.012) 12px);
+    pointer-events:none;
+  }
+  .gauge-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;position:relative}
+  .gauge-title{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);font-weight:700}
+  .gauge-day{font-size:12px;color:var(--ink-faint)}
+  .gauge-val{font-size:46px;font-weight:800;letter-spacing:-.02em;line-height:1.05;position:relative}
+  .gauge-sub{font-size:13px;color:var(--ink-dim);margin-top:2px;position:relative}
+  .meter{height:12px;border-radius:7px;background:var(--panel-2);margin-top:18px;overflow:hidden;position:relative;border:1px solid var(--line-soft)}
+  .meter-fill{height:100%;border-radius:7px;transition:width .6s cubic-bezier(.2,.8,.2,1);background:linear-gradient(90deg,var(--amber-deep),var(--amber))}
+  .meter-marks{display:flex;justify-content:space-between;margin-top:7px;font-size:10.5px;color:var(--ink-faint)}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:16px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .kpi .v{font-size:23px;font-weight:800;letter-spacing:-.01em}
+  .kpi .l{font-size:11px;color:var(--ink-faint);margin-top:3px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+  .kpi .v.pos{color:var(--green)} .kpi .v.neg{color:var(--red)}
+
+  /* ---------- Tables ---------- */
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:15px;flex-wrap:wrap}
+  .search{
+    flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 13px;color:var(--ink);font-family:inherit;font-size:13.5px;
+  }
+  .search:focus{outline:none;border-color:var(--amber)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  thead th{
+    text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
+    font-weight:700;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel-2);
+  }
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--line-soft);color:var(--ink)}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:var(--panel-2)}
+  .num{text-align:right;font-family:'Spline Sans Mono',monospace;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.03em}
+  .tag-diag{background:rgba(207,210,217,.14);color:var(--blue)}
+  .tag-t1{background:rgba(55,196,109,.16);color:var(--green)}
+  .tag-t2{background:rgba(226,20,20,.18);color:#ff6b6b}
+  .tag-t3{background:rgba(255,90,82,.16);color:var(--red)}
+  .tag-piece,.tag-forfait{background:rgba(164,164,174,.14);color:var(--ink-dim)}
+  .tag-paid{background:rgba(55,196,109,.16);color:var(--green)}
+  .tag-unpaid{background:rgba(255,90,82,.16);color:var(--red)}
+  .row-act{display:flex;gap:6px;justify-content:flex-end}
+  .iconbtn{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px;cursor:pointer;color:var(--ink-dim);display:grid;place-items:center;transition:.15s}
+  .iconbtn:hover{color:var(--ink);border-color:var(--ink-faint)}
+  .iconbtn.del:hover{color:var(--red);border-color:var(--red)}
+  .iconbtn svg{width:15px;height:15px}
+
+  .empty{padding:54px 20px;text-align:center;color:var(--ink-faint)}
+  .empty svg{width:40px;height:40px;margin-bottom:12px;opacity:.5}
+  .empty p{font-size:14px;margin-bottom:4px;color:var(--ink-dim)}
+  .empty small{font-size:12.5px}
+
+  /* ---------- Modal ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(4,4,6,.7);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:40px 18px;z-index:50;overflow-y:auto}
+  .scrim.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:620px;box-shadow:var(--shadow);animation:pop .22s cubic-bezier(.2,.9,.3,1.1)}
+  @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+  .modal-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal-head h3{font-size:18px;font-weight:800}
+  .modal-body{padding:22px 24px}
+  .modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;color:var(--ink-dim);font-weight:600;margin-bottom:6px;letter-spacing:.03em}
+  .field input,.field select,.field textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+    padding:11px 13px;color:var(--ink);font-family:inherit;font-size:14px;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--amber)}
+  .field input.mono{font-family:'Spline Sans Mono',monospace}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .frow-3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px}
+  .hint{font-size:11.5px;color:var(--ink-faint);margin-top:5px}
+
+  /* line items */
+  .li-head,.li-row{display:grid;grid-template-columns:2fr 1fr .7fr .9fr .9fr 34px;gap:9px;align-items:center}
+  .li-head{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:8px;padding:0 2px}
+  .li-row{margin-bottom:9px}
+  .li-row input,.li-row select{padding:9px 10px;font-size:13px}
+  .li-amt{font-family:'Spline Sans Mono',monospace;text-align:right;color:var(--ink-dim);font-size:13px;padding-right:4px}
+  .li-del{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--ink-faint);cursor:pointer;height:34px;display:grid;place-items:center}
+  .li-del:hover{color:var(--red);border-color:var(--red)}
+  .li-total{display:flex;justify-content:flex-end;gap:18px;align-items:baseline;margin-top:8px;padding-top:14px;border-top:1px solid var(--line)}
+  .li-total .lbl{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .li-total .val{font-size:26px;font-weight:800;font-family:'Spline Sans Mono',monospace}
+
+  /* settings */
+  .set-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .set-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .set-card h4{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:16px}
+
+  .banner{
+    background:linear-gradient(100deg,rgba(226,20,20,.12),rgba(226,20,20,.03));
+    border:1px solid rgba(226,20,20,.28);border-radius:12px;padding:13px 16px;margin-bottom:22px;
+    display:flex;gap:12px;align-items:flex-start;font-size:13px;color:#f4c1c1;
+  }
+  .banner svg{width:18px;height:18px;flex-shrink:0;color:var(--amber);margin-top:1px}
+  .banner b{color:#ff6b6b}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-weight:700;font-size:13.5px;padding:12px 20px;border-radius:11px;opacity:0;transition:.3s;z-index:100;box-shadow:var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .month-pick{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 14px}
+  .month-pick span{font-size:13px;color:var(--ink-dim);font-weight:600}
+  .month-pick input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 10px;font-family:'Spline Sans Mono',monospace;font-size:13px}
+
+  @media(max-width:860px){
+    .rail{position:fixed;left:-260px;z-index:60;transition:left .25s}
+    .rail.open{left:0}
+    .main{padding:18px 16px 60px}
+    .kpi-row{grid-template-columns:1fr 1fr}
+    .set-grid{grid-template-columns:1fr}
+    .frow,.frow-3{grid-template-columns:1fr}
+    .menu-btn{display:grid !important}
+    .li-head{display:none}
+    .li-row{grid-template-columns:1fr 1fr;gap:7px;padding:11px;background:var(--panel-2);border-radius:10px}
+  }
+  .menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:61;width:42px;height:42px;border-radius:10px;background:var(--panel);border:1px solid var(--line);place-items:center;cursor:pointer;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="menu-btn" id="menuBtn" onclick="document.getElementById('rail').classList.toggle('open')">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+</div>
+<div class="shell">
+  <nav class="rail" id="rail">
+    <div class="brand">
+      <div class="logo">IA</div>
+      <div><h1>INSTANTAUTO</h1><span>ATELIER</span></div>
+    </div>
+    <div class="navlink active" data-view="dashboard"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V8h-8zM3 21h8v-5H3zM13 3v3h8V3z"/></svg>Tableau de bord</div>
+    <div class="navlink" data-view="invoices"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>Factures</div>
+    <div class="navlink" data-view="clients"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clients & véhicules</div>
+    <div class="navlink" data-view="parts"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2-2 2.1-2.1z"/></svg>Pièces</div>
+    <div class="navlink" data-view="extras"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>Consommables</div>
+    <div class="navlink" data-view="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Réglages</div>
+    <div class="rail-foot">
+      <button class="btn btn-sm btn-amber" id="autosaveBtn" onclick="toggleAutosave()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Sauvegarde auto</button>
+      <button class="btn btn-sm btn-ghost" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export manuel</button>
+      <label class="btn btn-sm btn-ghost" style="cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg>Importer<input type="file" accept="application/json" style="display:none" onchange="importData(event)"></label>
+      <div class="save-state"><span class="dot" id="saveDot"></span><span id="saveTxt">Données enregistrées</span></div>
+    </div>
+  </nav>
+
+  <main class="main" id="main"></main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================ STATE ============================
+const DEFAULTS = {
+  settings:{
+    name:"INSTANTAUTO", address:"710 Route de Marseille", siret:"",
+    rateDiag:70, rateT1:70, rateT2:80, rateT3:90,
+    fixed:950, salary:0, days:25, margin:30
+  },
+  clients:[], invoices:[], parts:[], extras:[], seq:1
+};
+let DB = JSON.parse(JSON.stringify(DEFAULTS));
+let currentView='dashboard';
+let dashMonth = new Date().toISOString().slice(0,7);
+
+const STORE_KEY='instantauto:db';
+// Detect the artifact storage API; fall back to browser localStorage when the
+// file is opened directly (double-clic). Either way, the UI must never wait on it.
+const hasCloud = (typeof window!=='undefined' && window.storage && typeof window.storage.get==='function');
+
+function applyLoaded(raw){
+  if(!raw) return;
+  try{
+    const d = (typeof raw==='string') ? JSON.parse(raw) : raw;
+    DB = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), d);
+    DB.settings = Object.assign({}, DEFAULTS.settings, d.settings||{});
+    // One-time migration: salary removed from the objective (user works without paying themselves for now)
+    if(!DB._migr_nosalary){ DB.settings.salary = 0; DB._migr_nosalary = true; }
+  }catch(e){ /* corrupt data: keep defaults */ }
+}
+
+// Load WITHOUT blocking the UI. Boot never awaits this before the first render.
+async function loadDB(){
+  try{ const ls=localStorage.getItem(STORE_KEY); if(ls) applyLoaded(ls); }catch(e){}
+  if(hasCloud){
+    try{
+      const r = await Promise.race([
+        window.storage.get(STORE_KEY),
+        new Promise(res=>setTimeout(()=>res(null),2500))
+      ]);
+      if(r && r.value){ applyLoaded(r.value); }
+    }catch(e){}
+  }
+}
+
+function setSaveState(state, text){
+  const dot=document.getElementById('saveDot'), txt=document.getElementById('saveTxt');
+  if(!dot||!txt) return;
+  if(state==='saving'){ dot.style.background='var(--amber)'; txt.textContent=text||'Enregistrement…'; }
+  else if(state==='ok'){ dot.style.background='var(--green)'; txt.textContent=text||'Données enregistrées'; }
+  else { dot.style.background='var(--red)'; txt.textContent=text||'Pense à exporter'; }
+}
+// Fire-and-forget save: write locally (reliable), mirror to cloud if present,
+// and write to the auto-backup file if the user activated it.
+function saveDB(){
+  setSaveState('saving');
+  let localOK=false;
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); localOK=true; }catch(e){}
+  if(hasCloud){
+    try{
+      Promise.resolve(window.storage.set(STORE_KEY, JSON.stringify(DB)))
+        .then(()=>afterLocalSave(localOK))
+        .catch(()=>afterLocalSave(localOK));
+    }catch(e){ afterLocalSave(localOK); }
+  } else {
+    afterLocalSave(localOK);
+  }
+}
+function afterLocalSave(localOK){
+  if(autosaveOn && fileHandle){ scheduleFileWrite(localOK); }
+  else { setSaveState(localOK?'ok':'err'); }
+}
+
+// ============================ AUTOSAVE SUR FICHIER ============================
+// API File System Access (Chrome/Edge) : l'utilisateur choisit un fichier UNE fois,
+// puis chaque modification y est réécrite automatiquement, en direct.
+// Le handle du fichier est mémorisé dans IndexedDB pour survivre au rechargement.
+let fileHandle = null;
+let autosaveOn = false;
+let fileWriteTimer = null;
+const supportsFS = ('showSaveFilePicker' in window);
+const IDB_NAME='instantauto-fs', IDB_STORE='handles', IDB_KEY='backup';
+
+function idbOpen(){return new Promise((res,rej)=>{
+  const r=indexedDB.open(IDB_NAME,1);
+  r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE);
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+});}
+async function idbSet(v){const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,'readwrite');t.objectStore(IDB_STORE).put(v,IDB_KEY);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
+async function idbGet(){const db=await idbOpen();return new Promise((res)=>{const t=db.transaction(IDB_STORE,'readonly');const rq=t.objectStore(IDB_STORE).get(IDB_KEY);rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);});}
+async function idbDel(){const db=await idbOpen();return new Promise((res)=>{const t=db.transaction(IDB_STORE,'readwrite');t.objectStore(IDB_STORE).delete(IDB_KEY);t.oncomplete=()=>res();t.onerror=()=>res();});}
+
+async function verifyPermission(h){
+  const opts={mode:'readwrite'};
+  try{
+    if((await h.queryPermission(opts))==='granted') return true;
+    if((await h.requestPermission(opts))==='granted') return true;
+  }catch(e){}
+  return false;
+}
+async function writeToFile(){
+  if(!fileHandle) return false;
+  try{
+    const w=await fileHandle.createWritable();
+    await w.write(JSON.stringify(DB,null,2));
+    await w.close();
+    return true;
+  }catch(e){ return false; }
+}
+// Debounced file write (évite d'écrire à chaque frappe).
+function scheduleFileWrite(localOK){
+  clearTimeout(fileWriteTimer);
+  fileWriteTimer=setTimeout(async()=>{
+    const ok=await writeToFile();
+    setSaveState(ok?'ok':(localOK?'ok':'err'), ok?'Sauvegardé sur fichier ✓':'Fichier non écrit — reconnecte');
+    if(!ok){ autosaveOn=false; updateAutosaveUI(); }
+  },500);
+}
+
+// Bouton unique : active / reconnecte / désactive selon l'état.
+async function toggleAutosave(){
+  if(!supportsFS){
+    toast("Sauvegarde auto : utilise Chrome ou Edge (l'export manuel reste dispo).");
+    return;
+  }
+  if(autosaveOn){ // désactiver
+    autosaveOn=false; fileHandle=null; await idbDel(); updateAutosaveUI();
+    toast('Sauvegarde auto désactivée'); return;
+  }
+  if(fileHandle){ // reconnecter un fichier déjà choisi (après rechargement)
+    if(await verifyPermission(fileHandle)){
+      autosaveOn=true; await writeToFile(); updateAutosaveUI();
+      setSaveState('ok','Sauvegardé sur fichier ✓'); toast('Sauvegarde auto réactivée');
+    }else{ toast('Autorisation refusée pour le fichier'); }
+    return;
+  }
+  // premier choix du fichier
+  try{
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName:'INSTANTAUTO_sauvegarde.json',
+      types:[{description:'Sauvegarde INSTANTAUTO',accept:{'application/json':['.json']}}]
+    });
+    autosaveOn=true;
+    await idbSet(fileHandle);
+    await writeToFile();
+    updateAutosaveUI();
+    setSaveState('ok','Sauvegardé sur fichier ✓');
+    toast('Sauvegarde auto activée — tout s’écrit dans ce fichier');
+  }catch(e){ /* annulé par l'utilisateur */ }
+}
+function updateAutosaveUI(){
+  const b=document.getElementById('autosaveBtn'); if(!b) return;
+  if(!supportsFS){
+    b.className='btn btn-sm btn-ghost'; b.style.color='var(--ink-faint)';
+    b.title="Disponible sur Chrome / Edge — utilise « Export manuel » ici";
+    b.lastChild.textContent='Sauvegarde auto (Chrome/Edge)';
+    return;
+  }
+  if(autosaveOn){
+    b.className='btn btn-sm btn-ghost';
+    b.style.color='var(--green)'; b.style.borderColor='rgba(55,196,109,.4)';
+    b.lastChild.textContent='Sauvegarde auto ● active';
+  }else if(fileHandle){
+    b.className='btn btn-sm btn-amber'; b.style.color=''; b.style.borderColor='';
+    b.lastChild.textContent='Reconnecter la sauvegarde';
+  }else{
+    b.className='btn btn-sm btn-amber'; b.style.color=''; b.style.borderColor='';
+    b.lastChild.textContent='Sauvegarde auto';
+  }
+}
+async function restoreAutosave(){
+  if(!supportsFS) { updateAutosaveUI(); return; }
+  try{
+    const h=await idbGet();
+    if(h){ fileHandle=h; autosaveOn=false; } // en pause : nécessite un clic pour ré-autoriser
+  }catch(e){}
+  updateAutosaveUI();
+}
+
+// ============================ HELPERS ============================
+const euro = n => (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const euro0 = n => Math.round(Number(n)||0).toLocaleString('fr-FR')+' €';
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const todayISO = () => new Date().toISOString().slice(0,10);
+const frDate = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
+function rateFor(type){ const s=DB.settings; return {Diagnostic:+s.rateDiag,T1:+s.rateT1,T2:+s.rateT2,T3:+s.rateT3}[type]||0; }
+function lineAmount(li){
+  const r=rateFor(li.type);
+  if(r>0) return (+li.qty||0)*r;            // main d'oeuvre : qty = heures
+  return (+li.qty||0)*(+li.pu||0);          // pièce/forfait : qty * prix unitaire
+}
+function invoiceTotal(inv){ return (inv.lines||[]).reduce((s,l)=>s+lineAmount(l),0); }
+function invoiceMO(inv){ return (inv.lines||[]).reduce((s,l)=>s+(rateFor(l.type)>0?lineAmount(l):0),0); }
+function workdaysElapsed(monthStr){
+  const [y,m]=monthStr.split('-').map(Number);
+  const today=new Date(); const last=new Date(y,m,0);
+  const end = (today.getFullYear()===y && today.getMonth()===m-1) ? today : last;
+  let c=0; for(let d=1; d<=end.getDate(); d++){ const wd=new Date(y,m-1,d).getDay(); if(wd!==0 && wd!==6) c++; }
+  return c;
+}
+function inMonth(iso,monthStr){ return iso && iso.slice(0,7)===monthStr; }
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function closeModal(){ document.getElementById('scrim').classList.remove('show'); document.getElementById('scrim').innerHTML=''; }
+
+// ============================ ROUTER ============================
+document.querySelectorAll('.navlink').forEach(l=>l.addEventListener('click',()=>{
+  document.querySelectorAll('.navlink').forEach(x=>x.classList.remove('active'));
+  l.classList.add('active'); currentView=l.dataset.view; render();
+  document.getElementById('rail').classList.remove('open');
+}));
+function render(){
+  const m=document.getElementById('main');
+  ({dashboard:viewDashboard,invoices:viewInvoices,clients:viewClients,parts:viewParts,extras:viewExtras,settings:viewSettings}[currentView]||viewDashboard)(m);
+}
+
+// ============================ DASHBOARD ============================
+function viewDashboard(m){
+  const s=DB.settings;
+  const targetMonth = (+s.fixed)+(+s.salary);
+  const targetDay = targetMonth/(+s.days||1);
+  const elapsed = workdaysElapsed(dashMonth);
+  const targetCum = targetDay*elapsed;
+
+  const invs = DB.invoices.filter(i=>inMonth(i.date,dashMonth));
+  const caMonth = invs.reduce((s,i)=>s+invoiceTotal(i),0);
+  const moMonth = invs.reduce((s,i)=>s+invoiceMO(i),0);
+  const partsMonth = DB.parts.filter(p=>inMonth(p.date,dashMonth)).reduce((s,p)=>s+(+p.qty||0)*(+p.pu||0),0);
+  const extrasMonth = DB.extras.filter(e=>inMonth(e.date,dashMonth)).reduce((s,e)=>s+(+e.qty||0)*(+e.pu||0),0);
+  const net = caMonth - extrasMonth - (+s.fixed) - partsMonth;
+  const unpaid = DB.invoices.filter(i=>i.paid==='Non'||i.paid===false).reduce((s,i)=>s+invoiceTotal(i),0);
+
+  const aheadBehind = moMonth - targetCum;
+  const pct = Math.max(0,Math.min(100, targetCum>0 ? (moMonth/targetCum*100) : (moMonth>0?100:0)));
+  const onTrack = aheadBehind>=0;
+
+  m.innerHTML = `
+    <div class="page-head">
+      <div><div class="eyebrow">INSTANTAUTO · ATELIER</div><h2>Tableau de bord</h2>
+        <p>Ta journée est rentable quand la main-d'œuvre facturée dépasse le seuil. Le reste, c'est du bénéfice.</p></div>
+      <div class="month-pick"><span>Mois</span><input type="month" value="${dashMonth}" onchange="dashMonth=this.value;render()"></div>
+    </div>
+
+    <div class="banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      <div>Tes données sont enregistrées automatiquement dans ce navigateur, sur cet ordinateur. Pour ne rien risquer, active la <b>Sauvegarde auto</b> (en bas à gauche) : chaque modification est aussi écrite <b>en direct dans un fichier</b> de ton choix. À défaut, clique de temps en temps sur <b>Export manuel</b> pour obtenir un fichier de secours ré-importable.</div>
+    </div>
+
+    <div class="gauge-wrap">
+      <div class="gauge-top">
+        <span class="gauge-title">Seuil du jour à atteindre</span>
+        <span class="gauge-day mono">${elapsed} jours ouvrés écoulés</span>
+      </div>
+      <div class="gauge-val mono">${euro0(targetDay)}<span style="font-size:18px;color:var(--ink-faint);font-weight:600"> / jour de M.O.</span></div>
+      <div class="gauge-sub">soit ${euro0(targetMonth)} de bénéfice à dégager sur le mois (${s.fixed} € de charges${(+s.salary)>0?` + ${s.salary} € de paye`:''}, sur ${s.days} jours)</div>
+      <div class="meter"><div class="meter-fill" style="width:${pct}%;background:${onTrack?'linear-gradient(90deg,var(--green-deep),var(--green))':'linear-gradient(90deg,var(--amber-deep),var(--amber))'}"></div></div>
+      <div class="meter-marks"><span>M.O. réalisée : ${euro0(moMonth)}</span><span>Objectif à ce jour : ${euro0(targetCum)}</span></div>
+      <div style="margin-top:16px;display:flex;align-items:center;gap:10px">
+        <span class="tag ${onTrack?'tag-t1':'tag-t3'}" style="font-size:12.5px;padding:5px 13px">${onTrack?'✓ Dans les temps / en avance':'⚠ En retard sur l’objectif'}</span>
+        <span class="mono" style="font-size:15px;font-weight:700;color:${onTrack?'var(--green)':'var(--red)'}">${aheadBehind>=0?'+':''}${euro0(aheadBehind)}</span>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="v mono">${euro0(caMonth)}</div><div class="l">CA facturé · mois</div></div>
+      <div class="kpi"><div class="v mono">${euro0(moMonth)}</div><div class="l">Main-d'œuvre · mois</div></div>
+      <div class="kpi"><div class="v mono ${net>=0?'pos':'neg'}">${euro0(net)}</div><div class="l">Bénéfice net estimé</div></div>
+      <div class="kpi"><div class="v mono" style="color:${unpaid>0?'var(--red)':'var(--ink)'}">${euro0(unpaid)}</div><div class="l">À encaisser</div></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px">
+      <div class="card">
+        <div class="card-lbl">Dépenses du mois</div>
+        ${depLine('Charges fixes',euro(+s.fixed))}
+        ${depLine('Pièces achetées',euro(partsMonth))}
+        ${depLine('Consommables & extra',euro(extrasMonth))}
+        <div style="display:flex;justify-content:space-between;padding-top:12px;margin-top:6px;border-top:1px solid var(--line)">
+          <span style="font-weight:700">Bénéfice net</span><span class="mono" style="font-weight:800;color:${net>=0?'var(--green)':'var(--red)'}">${euro(net)}</span></div>
+      </div>
+      <div class="card">
+        <div class="card-lbl">Dernières factures</div>
+        ${recentInvoices()}
+      </div>
+    </div>
+  `;
+}
+const depLine=(l,v)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--ink-dim)"><span>${l}</span><span class="mono" style="color:var(--ink)">${v}</span></div>`;
+function recentInvoices(){
+  const list=[...DB.invoices].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  if(!list.length) return `<div style="color:var(--ink-faint);font-size:13px;padding:14px 0">Aucune facture pour l'instant.</div>`;
+  return list.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft)">
+    <div><div style="font-weight:600;font-size:13px">${esc(i.client||'—')}</div><div style="font-size:11.5px;color:var(--ink-faint)" class="mono">${esc(i.number)} · ${frDate(i.date)}</div></div>
+    <div class="mono" style="font-weight:700">${euro0(invoiceTotal(i))}</div></div>`).join('');
+}
+
+// ============================ CLIENTS ============================
+function viewClients(m){
+  m.innerHTML=`
+    <div class="page-head">
+      <div><div class="eyebrow">FICHES</div><h2>Clients & véhicules</h2>
+        <p>Une ligne par véhicule. Un client avec deux voitures, c'est deux fiches.</p></div>
+      <button class="btn btn-amber" onclick="editClient()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouvelle fiche</button>
+    </div>
+    <div class="toolbar"><input class="search" placeholder="Rechercher un client, une immatriculation…" oninput="filterTable('cl',this.value)"></div>
+    <div class="tbl-wrap" id="cl-wrap">${clientsTable(DB.clients)}</div>`;
+}
+function clientsTable(rows){
+  if(!rows.length) return emptyState('Aucune fiche client','Ajoute ton premier client et son véhicule.');
+  return `<table><thead><tr><th>Client</th><th>Téléphone</th><th>Immatriculation</th><th>Véhicule</th><th class="num">Km</th><th>Type</th><th></th></tr></thead><tbody>
+    ${rows.map(c=>`<tr>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td class="mono" style="color:var(--ink-dim)">${esc(c.phone||'—')}</td>
+      <td class="mono">${esc(c.plate||'—')}</td>
+      <td>${esc(c.model||'—')}</td>
+      <td class="num">${c.km?(+c.km).toLocaleString('fr-FR'):'—'}</td>
+      <td><span style="font-size:12px;color:var(--ink-dim)">${esc(c.kind||'Particulier')}</span></td>
+      <td><div class="row-act">
+        <button class="iconbtn" onclick='editClient(${JSON.stringify(c.id)})' title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+        <button class="iconbtn del" onclick='delItem("clients",${JSON.stringify(c.id)})' title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div></td></tr>`).join('')}
+  </tbody></table>`;
+}
+function editClient(id){
+  const c = id ? DB.clients.find(x=>x.id===id) : {id:uid(),name:'',phone:'',addr:'',plate:'',model:'',km:'',kind:'Particulier'};
+  openModal(`${id?'Modifier':'Nouvelle'} fiche client`, `
+    <div class="field"><label>Nom du client</label><input id="f-name" value="${esc(c.name)}" placeholder="Nom et prénom"></div>
+    <div class="frow">
+      <div class="field"><label>Téléphone</label><input id="f-phone" class="mono" value="${esc(c.phone)}" placeholder="06 12 34 56 78"></div>
+      <div class="field"><label>Type</label><select id="f-kind"><option ${c.kind==='Particulier'?'selected':''}>Particulier</option><option ${c.kind==='Professionnel'?'selected':''}>Professionnel</option></select></div>
+    </div>
+    <div class="field"><label>Adresse / Email</label><input id="f-addr" value="${esc(c.addr)}" placeholder="Adresse postale ou email"></div>
+    <div class="frow-3">
+      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(c.plate)}" placeholder="AB-123-CD" style="text-transform:uppercase"></div>
+      <div class="field"><label>Modèle</label><input id="f-model" value="${esc(c.model)}" placeholder="Peugeot 308"></div>
+      <div class="field"><label>Kilométrage</label><input id="f-km" class="mono" type="number" value="${esc(c.km)}" placeholder="145000"></div>
+    </div>`,
+    ()=>{
+      c.name=val('f-name').trim(); c.phone=val('f-phone'); c.kind=val('f-kind'); c.addr=val('f-addr');
+      c.plate=val('f-plate').toUpperCase(); c.model=val('f-model'); c.km=val('f-km');
+      if(!c.name){ toast('Indique au moins le nom du client'); return false; }
+      if(!id) DB.clients.push(c);
+      saveDB(); render(); toast(id?'Fiche modifiée':'Fiche ajoutée'); return true;
+    });
+}
+
+// ============================ INVOICES ============================
+function viewInvoices(m){
+  m.innerHTML=`
+    <div class="page-head">
+      <div><div class="eyebrow">REGISTRE</div><h2>Factures</h2>
+        <p>Numérotation continue, conservées ici. Choisis un véhicule, ajoute les lignes, le total se calcule.</p></div>
+      <button class="btn btn-amber" onclick="editInvoice()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouvelle facture</button>
+    </div>
+    <div class="toolbar"><input class="search" placeholder="Rechercher un n°, un client, une immat…" oninput="filterTable('inv',this.value)"></div>
+    <div class="tbl-wrap" id="inv-wrap">${invoicesTable(DB.invoices)}</div>`;
+}
+function invoicesTable(rows){
+  if(!rows.length) return emptyState('Aucune facture','Crée ta première facture pour démarrer le registre.');
+  const sorted=[...rows].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<table><thead><tr><th>N°</th><th>Date</th><th>Client</th><th>Immat.</th><th class="num">M.O.</th><th class="num">Total</th><th>Payé</th><th></th></tr></thead><tbody>
+    ${sorted.map(i=>`<tr>
+      <td class="mono" style="font-weight:600">${esc(i.number)}</td>
+      <td class="mono" style="color:var(--ink-dim)">${frDate(i.date)}</td>
+      <td style="font-weight:600">${esc(i.client||'—')}</td>
+      <td class="mono">${esc(i.plate||'—')}</td>
+      <td class="num" style="color:var(--ink-dim)">${euro0(invoiceMO(i))}</td>
+      <td class="num" style="font-weight:700">${euro0(invoiceTotal(i))}</td>
+      <td><span class="tag ${(i.paid==='Oui')?'tag-paid':'tag-unpaid'}">${i.paid==='Oui'?'Payé':'À encaisser'}</span></td>
+      <td><div class="row-act">
+        <button class="iconbtn" onclick='printInvoice(${JSON.stringify(i.id)})' title="Imprimer / PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg></button>
+        <button class="iconbtn" onclick='editInvoice(${JSON.stringify(i.id)})' title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+        <button class="iconbtn del" onclick='delItem("invoices",${JSON.stringify(i.id)})' title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div></td></tr>`).join('')}
+  </tbody></table>`;
+}
+let modalLines=[];
+function editInvoice(id){
+  const inv = id ? DB.invoices.find(x=>x.id===id)
+                 : {id:uid(), number:'INV-'+String(DB.seq).padStart(4,'0'), date:todayISO(), clientId:'', client:'', plate:'', model:'', paid:'Non', mode:'', lines:[{type:'T1',desc:'',qty:'',pu:''}]};
+  modalLines = JSON.parse(JSON.stringify(inv.lines&&inv.lines.length?inv.lines:[{type:'T1',desc:'',qty:'',pu:''}]));
+  const opts = DB.clients.map(c=>`<option value="${c.id}" ${c.id===inv.clientId?'selected':''}>${esc(c.name)} — ${esc(c.plate||'')}</option>`).join('');
+  openModal(`${id?'Modifier':'Nouvelle'} facture`, `
+    <div class="frow-3">
+      <div class="field"><label>N° facture</label><input id="f-num" class="mono" value="${esc(inv.number)}"></div>
+      <div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(inv.date)}"></div>
+      <div class="field"><label>Réglé</label><select id="f-paid"><option ${inv.paid==='Non'?'selected':''}>Non</option><option ${inv.paid==='Oui'?'selected':''}>Oui</option></select></div>
+    </div>
+    <div class="field"><label>Véhicule / client</label>
+      <select id="f-client" onchange="onPickClient()"><option value="">— choisis un véhicule —</option>${opts}</select>
+      <div class="hint">${DB.clients.length?'Sélectionne pour remplir le client automatiquement.':'Aucun client encore. Tu peux taper le nom à la main ci-dessous.'}</div>
+    </div>
+    <div class="frow"><div class="field"><label>Client (nom sur la facture)</label><input id="f-cname" value="${esc(inv.client)}"></div>
+      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(inv.plate)}" style="text-transform:uppercase"></div></div>
+    <div style="margin:18px 0 6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);font-weight:700">Prestations & pièces</div>
+    <div class="hint" style="margin-bottom:10px">Choisis le <b style="color:var(--ink)">Type</b> sur chaque ligne : main-d'œuvre (Diagnostic, T1, T2, T3 → tu mets les heures, le prix se calcule au taux) ou <b style="color:var(--ink)">Pièce</b> (tu mets quantité + prix unitaire).</div>
+    <div class="li-head"><span>Désignation</span><span>Type</span><span>Qté / h</span><span>Prix unitaire</span><span style="text-align:right">Montant</span><span></span></div>
+    <div id="lines"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-sm btn-ghost" onclick="addLineType('T1')">+ Main-d'œuvre</button>
+      <button class="btn btn-sm btn-ghost" onclick="addLineType('Pièce')">+ Pièce</button>
+    </div>
+    <div class="li-total"><span class="lbl">Total</span><span class="val" id="li-total">0,00 €</span></div>`,
+    ()=>{
+      inv.number=val('f-num'); inv.date=val('f-date'); inv.paid=val('f-paid');
+      inv.clientId=val('f-client'); inv.client=val('f-cname').trim(); inv.plate=val('f-plate').toUpperCase();
+      inv.lines=modalLines.filter(l=>l.desc||l.qty||l.pu);
+      if(!inv.client){ toast('Indique le nom du client'); return false; }
+      if(!inv.lines.length){ toast('Ajoute au moins une prestation'); return false; }
+      if(!id){ DB.invoices.push(inv); DB.seq++; }
+      saveDB(); render(); toast(id?'Facture modifiée':'Facture créée'); return true;
+    });
+  renderLines();
+}
+function onPickClient(){
+  const c=DB.clients.find(x=>x.id===val('f-client'));
+  if(c){ document.getElementById('f-cname').value=c.name; document.getElementById('f-plate').value=c.plate||''; }
+}
+function addLine(){ modalLines.push({type:'Pièce',desc:'',qty:'',pu:''}); renderLines(); }
+function addLineType(t){ modalLines.push({type:t,desc:'',qty:'',pu:''}); renderLines();
+  // focus the description of the new line for fast typing
+  setTimeout(()=>{ const rows=document.querySelectorAll('#lines .li-row'); const last=rows[rows.length-1]; if(last){ const inp=last.querySelector('[data-k="desc"]'); if(inp) inp.focus(); } },30);
+}
+function renderLines(){
+  const wrap=document.getElementById('lines');
+  wrap.innerHTML=modalLines.map((l,idx)=>{
+    const isMO=rateFor(l.type)>0;
+    return `<div class="li-row" data-idx="${idx}">
+      <input data-k="desc" placeholder="ex : Plaquettes avant / Disques" value="${esc(l.desc)}">
+      <select data-k="type">
+        ${['Diagnostic','T1','T2','T3','Pièce','Forfait'].map(t=>`<option ${l.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <input data-k="qty" class="mono" type="number" step="0.1" inputmode="decimal" placeholder="${isMO?'heures':'qté'}" value="${esc(l.qty)}">
+      <input data-k="pu" class="mono" type="number" step="0.01" inputmode="decimal" placeholder="${isMO?'auto (taux)':'€ / unité'}" value="${esc(l.pu)}" ${isMO?'disabled style="opacity:.4"':''}>
+      <span class="li-amt" data-amt>${euro(lineAmount(l))}</span>
+      <button class="li-del" data-del title="Retirer">×</button>
+    </div>`;
+  }).join('');
+  // Wire events WITHOUT re-rendering on each keystroke (keeps focus while typing)
+  wrap.querySelectorAll('.li-row').forEach(row=>{
+    const idx=+row.dataset.idx;
+    row.querySelectorAll('input,select').forEach(el=>{
+      const k=el.dataset.k;
+      const evt = (el.tagName==='SELECT') ? 'change' : 'input';
+      el.addEventListener(evt, e=>{
+        modalLines[idx][k]=e.target.value;
+        if(k==='type'){ renderLines(); }      // type switch changes the row layout -> full redraw
+        else { updateAmounts(); }              // text/number edits -> only refresh totals, keep focus
+      });
+    });
+    row.querySelector('[data-del]').addEventListener('click',()=>delLine(idx));
+  });
+  updateAmounts();
+}
+function updateAmounts(){
+  const wrap=document.getElementById('lines'); if(!wrap) return;
+  wrap.querySelectorAll('.li-row').forEach(row=>{
+    const idx=+row.dataset.idx;
+    const amt=row.querySelector('[data-amt]'); if(amt) amt.textContent=euro(lineAmount(modalLines[idx]));
+  });
+  const tot=document.getElementById('li-total'); if(tot) tot.textContent=euro(modalLines.reduce((s,l)=>s+lineAmount(l),0));
+}
+function delLine(i){ modalLines.splice(i,1); if(!modalLines.length) addLine(); else renderLines(); }
+
+// ============================ PARTS ============================
+function viewParts(m){
+  m.innerHTML=`
+    <div class="page-head">
+      <div><div class="eyebrow">STOCK & ACHATS</div><h2>Pièces</h2>
+        <p>Prix unitaire, quantité, total. La marge se calcule pour le prix client.</p></div>
+      <button class="btn btn-amber" onclick="editPart()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouvel achat</button>
+    </div>
+    <div class="toolbar"><input class="search" placeholder="Rechercher une pièce, un fournisseur…" oninput="filterTable('pt',this.value)"></div>
+    <div class="tbl-wrap" id="pt-wrap">${partsTable(DB.parts)}</div>`;
+}
+function partsTable(rows){
+  if(!rows.length) return emptyState('Aucune pièce','Note tes achats de pièces et leur prix.');
+  const mg=1+(+DB.settings.margin||0)/100;
+  const sorted=[...rows].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<table><thead><tr><th>Date</th><th>Pièce</th><th>Fournisseur</th><th class="num">Qté</th><th class="num">P.U.</th><th class="num">Total achat</th><th class="num">Revente client</th><th></th></tr></thead><tbody>
+    ${sorted.map(p=>{const tot=(+p.qty||0)*(+p.pu||0);return `<tr>
+      <td class="mono" style="color:var(--ink-dim)">${frDate(p.date)}</td>
+      <td style="font-weight:600">${esc(p.name)}</td>
+      <td style="color:var(--ink-dim)">${esc(p.supplier||'—')}</td>
+      <td class="num">${esc(p.qty)}</td>
+      <td class="num mono">${euro(p.pu)}</td>
+      <td class="num mono" style="font-weight:700">${euro(tot)}</td>
+      <td class="num mono" style="color:var(--green)">${euro(tot*mg)}</td>
+      <td><div class="row-act">
+        <button class="iconbtn" onclick='editPart(${JSON.stringify(p.id)})'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+        <button class="iconbtn del" onclick='delItem("parts",${JSON.stringify(p.id)})'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div></td></tr>`}).join('')}
+  </tbody></table>`;
+}
+function editPart(id){
+  const p = id ? DB.parts.find(x=>x.id===id) : {id:uid(),date:todayISO(),name:'',supplier:'',qty:1,pu:''};
+  openModal(`${id?'Modifier':'Nouvel'} achat de pièce`,`
+    <div class="frow"><div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(p.date)}"></div>
+      <div class="field"><label>Fournisseur</label><input id="f-sup" value="${esc(p.supplier)}" placeholder="Oscaro, Autodistribution…"></div></div>
+    <div class="field"><label>Pièce / référence</label><input id="f-name" value="${esc(p.name)}" placeholder="Kit distribution"></div>
+    <div class="frow"><div class="field"><label>Quantité</label><input id="f-qty" class="mono" type="number" step="1" value="${esc(p.qty)}"></div>
+      <div class="field"><label>Prix unitaire (€)</label><input id="f-pu" class="mono" type="number" step="0.01" value="${esc(p.pu)}"></div></div>`,
+    ()=>{
+      p.date=val('f-date'); p.supplier=val('f-sup'); p.name=val('f-name').trim(); p.qty=val('f-qty'); p.pu=val('f-pu');
+      if(!p.name){ toast('Indique le nom de la pièce'); return false; }
+      if(!id) DB.parts.push(p); saveDB(); render(); toast('Enregistré'); return true;
+    });
+}
+
+// ============================ EXTRAS ============================
+function viewExtras(m){
+  m.innerHTML=`
+    <div class="page-head">
+      <div><div class="eyebrow">FRAIS DIVERS</div><h2>Consommables & extra</h2>
+        <p>Gants, chiffons, petit outillage… Prix unitaire × quantité, déduit du bénéfice.</p></div>
+      <button class="btn btn-amber" onclick="editExtra()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouvel achat</button>
+    </div>
+    <div class="toolbar"><input class="search" placeholder="Rechercher…" oninput="filterTable('ex',this.value)"></div>
+    <div class="tbl-wrap" id="ex-wrap">${extrasTable(DB.extras)}</div>`;
+}
+function extrasTable(rows){
+  if(!rows.length) return emptyState('Aucun consommable','Ajoute tes petits achats du mois.');
+  const sorted=[...rows].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<table><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th class="num">Qté</th><th class="num">P.U.</th><th class="num">Total</th><th></th></tr></thead><tbody>
+    ${sorted.map(e=>{const tot=(+e.qty||0)*(+e.pu||0);return `<tr>
+      <td class="mono" style="color:var(--ink-dim)">${frDate(e.date)}</td>
+      <td style="font-weight:600">${esc(e.name)}</td>
+      <td style="color:var(--ink-dim)">${esc(e.cat||'—')}</td>
+      <td class="num">${esc(e.qty)}</td>
+      <td class="num mono">${euro(e.pu)}</td>
+      <td class="num mono" style="font-weight:700">${euro(tot)}</td>
+      <td><div class="row-act">
+        <button class="iconbtn" onclick='editExtra(${JSON.stringify(e.id)})'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+        <button class="iconbtn del" onclick='delItem("extras",${JSON.stringify(e.id)})'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </div></td></tr>`}).join('')}
+  </tbody></table>`;
+}
+function editExtra(id){
+  const e = id ? DB.extras.find(x=>x.id===id) : {id:uid(),date:todayISO(),name:'',cat:'Consommable',qty:1,pu:''};
+  const cats=['Consommable','Petit outillage','Nettoyage','Bureautique','Carburant','Divers'];
+  openModal(`${id?'Modifier':'Nouvel'} achat`,`
+    <div class="frow"><div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(e.date)}"></div>
+      <div class="field"><label>Catégorie</label><select id="f-cat">${cats.map(c=>`<option ${e.cat===c?'selected':''}>${c}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Désignation</label><input id="f-name" value="${esc(e.name)}" placeholder="Gants nitrile (boîte)"></div>
+    <div class="frow"><div class="field"><label>Quantité</label><input id="f-qty" class="mono" type="number" step="1" value="${esc(e.qty)}"></div>
+      <div class="field"><label>Prix unitaire (€)</label><input id="f-pu" class="mono" type="number" step="0.01" value="${esc(e.pu)}"></div></div>`,
+    ()=>{
+      e.date=val('f-date'); e.cat=val('f-cat'); e.name=val('f-name').trim(); e.qty=val('f-qty'); e.pu=val('f-pu');
+      if(!e.name){ toast('Indique la désignation'); return false; }
+      if(!id) DB.extras.push(e); saveDB(); render(); toast('Enregistré'); return true;
+    });
+}
+
+// ============================ SETTINGS ============================
+function viewSettings(m){
+  const s=DB.settings;
+  const targetMonth=(+s.fixed)+(+s.salary), targetDay=targetMonth/(+s.days||1);
+  m.innerHTML=`
+    <div class="page-head"><div><div class="eyebrow">CONFIGURATION</div><h2>Réglages</h2>
+      <p>Tes taux et objectifs. Tout le tableau de bord en découle.</p></div></div>
+    <div class="set-grid">
+      <div class="set-card"><h4>Identité</h4>
+        ${setInput('Nom du garage','name',s.name,'text')}
+        ${setInput('Adresse','address',s.address,'text')}
+        ${setInput('SIRET','siret',s.siret,'text')}
+      </div>
+      <div class="set-card"><h4>Taux horaires (€/h)</h4>
+        <div class="frow">${setInput('Diagnostic','rateDiag',s.rateDiag,'number')}${setInput('T1 courante','rateT1',s.rateT1,'number')}</div>
+        <div class="frow">${setInput('T2 intermédiaire','rateT2',s.rateT2,'number')}${setInput('T3 gros chantier','rateT3',s.rateT3,'number')}</div>
+      </div>
+      <div class="set-card"><h4>Objectif de rentabilité</h4>
+        <div class="frow">${setInput('Charges fixes / mois (€)','fixed',s.fixed,'number')}${setInput('Paye souhaitée à 2 (€) — option','salary',s.salary,'number')}</div>
+        <div class="frow">${setInput('Jours ouverts / mois','days',s.days,'number')}${setInput('Marge pièces (%)','margin',s.margin,'number')}</div>
+      </div>
+      <div class="set-card" style="background:linear-gradient(180deg,var(--panel),#101013)"><h4>Seuil calculé</h4>
+        <div style="font-size:13px;color:var(--ink-dim);margin-bottom:6px">Bénéfice cible mensuel</div>
+        <div class="mono" style="font-size:26px;font-weight:800">${euro0(targetMonth)}</div>
+        <div style="font-size:13px;color:var(--ink-dim);margin:14px 0 6px">Seuil journalier de M.O.</div>
+        <div class="mono" style="font-size:26px;font-weight:800;color:var(--amber)">${euro0(targetDay)}</div>
+      </div>
+    </div>
+    <div class="set-card" style="margin-top:16px">
+      <h4>Sauvegarde des données</h4>
+      <p style="font-size:13px;color:var(--ink-dim);line-height:1.7">
+        Tout est enregistré <b style="color:var(--ink)">automatiquement dans ce navigateur</b> à chaque modification.<br>
+        Pour une sécurité totale, active la <b style="color:var(--ink)">Sauvegarde auto sur fichier</b> (bouton en bas de la colonne de gauche) : tu choisis un fichier <span class="mono">.json</span> une seule fois, puis chaque changement y est réécrit en direct. Idéal dans un dossier synchronisé (OneDrive, Google&nbsp;Drive, Dropbox) pour un double de secours dans le cloud.<br>
+        <span style="color:var(--ink-faint)">Disponible sur Chrome et Edge. Sur les autres navigateurs, utilise « Export manuel » régulièrement.</span>
+      </p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px"><button class="btn btn-amber" onclick="saveSettings()">Enregistrer les réglages</button>
+      <button class="btn btn-danger btn-ghost" onclick="resetAll()">Tout réinitialiser</button></div>`;
+}
+const setInput=(label,key,v,type)=>`<div class="field"><label>${label}</label><input data-set="${key}" type="${type}" value="${esc(v)}" ${type==='number'?'step="any"':''}></div>`;
+function saveSettings(){
+  document.querySelectorAll('[data-set]').forEach(i=>{ const k=i.dataset.set; DB.settings[k]= (i.type==='number')? (+i.value||0) : i.value; });
+  saveDB(); render(); toast('Réglages enregistrés');
+}
+function resetAll(){
+  openModal('Tout réinitialiser ?', `<p style="color:var(--ink-dim);font-size:14px">Cette action efface <b style="color:var(--ink)">toutes</b> tes données (clients, factures, pièces, consommables) et remet les réglages par défaut. Pense à exporter une sauvegarde avant.</p>`,
+    ()=>{ DB=JSON.parse(JSON.stringify(DEFAULTS)); saveDB(); currentView='dashboard';
+      document.querySelectorAll('.navlink').forEach(x=>x.classList.remove('active')); document.querySelector('[data-view="dashboard"]').classList.add('active');
+      render(); toast('Tout a été réinitialisé'); return true; }, 'Effacer tout', true);
+}
+
+// ============================ INVOICE PRINT ============================
+function printInvoice(id){
+  const inv=DB.invoices.find(x=>x.id===id); if(!inv) return;
+  const s=DB.settings; const client=DB.clients.find(c=>c.id===inv.clientId)||{};
+  const rows=(inv.lines||[]).map(l=>{const r=rateFor(l.type);const isMO=r>0;
+    return `<tr><td>${esc(l.desc||'')}</td><td>${esc(l.type)}</td><td style="text-align:center">${esc(l.qty||'')}${isMO?' h':''}</td>
+    <td style="text-align:right">${euro(isMO?r:(+l.pu||0))}</td><td style="text-align:right">${euro(lineAmount(l))}</td></tr>`;}).join('');
+  const total=invoiceTotal(inv);
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(inv.number)}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1d23;padding:42px 46px;font-size:13px;line-height:1.5}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #e21414;padding-bottom:20px;margin-bottom:6px}
+    .gar h1{font-size:27px;letter-spacing:1px;color:#111}
+    .gar p{color:#555;font-size:12px;margin-top:3px}
+    .inv-meta{text-align:right}
+    .inv-meta .big{font-size:22px;font-weight:800;color:#e21414;letter-spacing:2px}
+    .inv-meta table{margin-top:8px;margin-left:auto;font-size:12px}
+    .inv-meta td{padding:2px 0 2px 14px;text-align:right}
+    .inv-meta td:first-child{color:#888;text-align:left}
+    .blocks{display:flex;gap:30px;margin:26px 0 18px}
+    .blk{flex:1;background:#f6f7f9;border-radius:8px;padding:14px 16px}
+    .blk h3{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:8px}
+    .blk .l{font-size:13px;margin:2px 0}
+    table.items{width:100%;border-collapse:collapse;margin-top:10px}
+    table.items th{background:#141417;color:#fff;text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+    table.items th:nth-child(n+3){text-align:right}
+    table.items td{padding:10px 12px;border-bottom:1px solid #eee}
+    .tot{display:flex;justify-content:flex-end;margin-top:14px}
+    .tot .box{min-width:240px}
+    .tot .row{display:flex;justify-content:space-between;padding:7px 12px}
+    .tot .grand{background:#e21414;color:#fff;border-radius:7px;font-size:17px;font-weight:800}
+    .legal{margin-top:34px;padding-top:16px;border-top:1px solid #ddd;color:#777;font-size:11px;line-height:1.7}
+    .legal b{color:#c0392b}
+    @media print{body{padding:20px}}
+  </style></head><body>
+    <div class="top">
+      <div class="gar"><h1>${esc(s.name||'INSTANTAUTO')}</h1><p>${esc(s.address||'')}</p><p>SIRET : ${esc(s.siret||'—')}</p></div>
+      <div class="inv-meta"><div class="big">FACTURE</div>
+        <table><tr><td>N°</td><td>${esc(inv.number)}</td></tr><tr><td>Date</td><td>${frDate(inv.date)}</td></tr></table></div>
+    </div>
+    <div class="blocks">
+      <div class="blk"><h3>Client</h3><div class="l"><b>${esc(inv.client||'')}</b></div>
+        <div class="l">${esc(client.phone||'')}</div><div class="l">${esc(client.addr||'')}</div></div>
+      <div class="blk"><h3>Véhicule</h3><div class="l">${esc(inv.plate||client.plate||'')}</div>
+        <div class="l">${esc(client.model||'')}</div><div class="l">${client.km?(+client.km).toLocaleString('fr-FR')+' km':''}</div></div>
+    </div>
+    <table class="items"><thead><tr><th>Désignation</th><th>Type</th><th>Qté / h</th><th>P.U.</th><th>Montant</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="tot"><div class="box"><div class="row grand"><span>TOTAL</span><span>${euro(total)}</span></div></div></div>
+    <div class="legal"><b>TVA non applicable, art. 293 B du CGI.</b><br>
+      Auto-entrepreneur — dispensé d'immatriculation au RCS et au répertoire des métiers.<br>
+      Paiement à réception. Pénalités de retard au taux légal ; indemnité forfaitaire de recouvrement 40 € (professionnels).<br>
+      Merci de votre confiance.</div>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+// ============================ MODAL CORE ============================
+function openModal(title, body, onSave, saveLabel='Enregistrer', danger=false){
+  const sc=document.getElementById('scrim');
+  sc.innerHTML=`<div class="modal">
+    <div class="modal-head"><h3>${title}</h3>
+      <button class="iconbtn" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot"><span style="font-size:11.5px;color:var(--ink-faint)">Échap pour fermer</span>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn ${danger?'btn-danger':'btn-amber'}" id="modalSave">${saveLabel}</button></div></div>
+  </div>`;
+  sc.classList.add('show');
+  document.getElementById('modalSave').onclick=()=>{ if(onSave()!==false) closeModal(); };
+}
+const val = id => { const el=document.getElementById(id); return el?el.value:''; };
+function delItem(coll,id){
+  openModal('Supprimer ?',`<p style="color:var(--ink-dim);font-size:14px">Cet élément sera définitivement retiré.</p>`,
+    ()=>{ DB[coll]=DB[coll].filter(x=>x.id!==id); saveDB(); render(); toast('Supprimé'); return true; },'Supprimer',true);
+}
+function filterTable(prefix,q){
+  q=q.toLowerCase();
+  const map={cl:[DB.clients,clientsTable],inv:[DB.invoices,invoicesTable],pt:[DB.parts,partsTable],ex:[DB.extras,extrasTable]};
+  const [data,fn]=map[prefix];
+  const f=data.filter(o=>JSON.stringify(o).toLowerCase().includes(q));
+  document.getElementById(prefix+'-wrap').innerHTML=fn(f);
+}
+function emptyState(t,s){return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><p>${t}</p><small>${s}</small></div>`;}
+
+// ============================ EXPORT / IMPORT ============================
+function exportData(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`INSTANTAUTO_sauvegarde_${todayISO()}.json`; a.click();
+  toast('Sauvegarde téléchargée');
+}
+function importData(ev){
+  const file=ev.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    DB=Object.assign(JSON.parse(JSON.stringify(DEFAULTS)),d); DB.settings=Object.assign({},DEFAULTS.settings,d.settings||{});
+    saveDB(); render(); toast('Sauvegarde importée'); }catch(e){ toast('Fichier illisible'); } };
+  r.readAsText(file); ev.target.value='';
+}
+
+// ============================ BOOT ============================
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
+
+// 1) Render the UI right away so the app is ALWAYS usable, even if storage is slow or absent.
+render();
+setSaveState('ok');
+// 2) Load any saved data in the background, then refresh the view if something came in.
+loadDB().then(()=>{ render(); }).catch(()=>{});
+// 3) Restore the auto-backup file handle (paused until the user re-authorises with a click).
+restoreAutosave();
+</script>
+</body>
+</html>

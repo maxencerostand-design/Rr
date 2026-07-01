@@ -1,37 +1,31 @@
-# Site INSTANTAUTO
+# INSTANTAUTO — Application de gestion d'atelier
 
-Site vitrine (1 seul fichier `index.html`, aucune dépendance) pour le garage,
-thème **noir / rouge / blanc**, avec **enregistrement automatique** des demandes de rendez-vous.
+Fichier unique `INSTANTAUTO.html` (aucune dépendance, aucun serveur) : ouvre-le
+par double-clic dans un navigateur. Thème **noir / rouge / blanc**.
 
-## Ouvrir le site
-Double-clique sur `index.html` — il s'ouvre dans n'importe quel navigateur.
-Pour le mettre en ligne gratuitement : dépose le fichier sur **Netlify Drop**,
-**GitHub Pages** ou **Vercel**.
+## Ce que fait l'app
+- **Tableau de bord** : seuil de rentabilité du jour, CA, main-d'œuvre, bénéfice, à encaisser.
+- **Factures** : numérotation continue, lignes main-d'œuvre / pièces, impression / PDF.
+- **Clients & véhicules**, **Pièces** (avec marge de revente), **Consommables**.
+- **Réglages** : taux horaires, charges, objectif.
 
-## L'enregistrement automatique des demandes
-Chaque formulaire envoyé est **enregistré automatiquement**, de deux façons :
+## Enregistrement automatique
+Toutes tes données sont **enregistrées automatiquement dans le navigateur** à
+chaque modification (rien à cliquer).
 
-1. **En local (toujours actif, sans rien configurer)**
-   La demande est stockée dans le navigateur. Pour voir toutes les demandes :
-   ouvre le site et ajoute `#admin` à l'adresse
-   (ex. `.../index.html#admin`) ou clique sur **« Accès gérant »** en bas de page.
-   Tu peux alors :
-   - consulter le tableau des demandes,
-   - **Exporter en CSV** (s'ouvre dans Excel),
-   - imprimer, ou tout effacer.
+En plus, tu peux activer la **Sauvegarde auto sur fichier** (bouton en bas de la
+colonne de gauche) :
+1. Tu choisis **une seule fois** un fichier `.json` (par ex. dans un dossier
+   OneDrive / Google Drive / Dropbox pour un double dans le cloud).
+2. Ensuite, **chaque modification est réécrite en direct** dans ce fichier.
+3. Après un rechargement de la page, un clic sur **« Reconnecter la sauvegarde »**
+   réautorise l'écriture (sécurité du navigateur).
 
-2. **Par email (recommandé, pour être prévenu à chaque demande)**
-   - Crée un compte gratuit sur <https://formspree.io>
-   - Copie l'URL de ton formulaire (ex. `https://formspree.io/f/abcdxyz`)
-   - Ouvre `index.html`, cherche le bloc `CONFIG` dans le `<script>`, et colle-la :
-     ```js
-     FORMSPREE_ENDPOINT: "https://formspree.io/f/abcdxyz",
-     ```
-   Chaque demande t'arrivera alors par email **en plus** de l'enregistrement local.
+> Disponible sur **Chrome** et **Edge** (API File System Access). Sur les autres
+> navigateurs, utilise **« Export manuel »** régulièrement — le fichier obtenu se
+> ré-importe avec **« Importer »**.
 
-## Personnaliser
-Dans `index.html`, remplace :
-- le numéro de téléphone `01 23 45 67 89`,
-- l'email `contact@instantauto.fr`,
-- l'adresse `12 rue de l'Atelier, 00000 Ville`,
-- les tarifs des services.
+## Palette
+Identité **rouge** (`#e21414`) sur fond **noir**, texte **blanc**. Le **vert** est
+conservé uniquement pour les signaux financiers positifs (facture payée, objectif
+atteint) et le rouge clair pour les alertes / retards.
