@@ -202,6 +202,19 @@
   .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-weight:700;font-size:13.5px;padding:12px 20px;border-radius:11px;opacity:0;transition:.3s;z-index:100;box-shadow:var(--shadow)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+  /* ---------- Écran de connexion cloud ---------- */
+  .auth-overlay{position:fixed;inset:0;background:rgba(6,6,8,.92);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .auth-overlay.show{display:flex}
+  .auth-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px;width:100%;max-width:380px;box-shadow:var(--shadow);text-align:center}
+  .auth-logo{width:52px;height:52px;border-radius:13px;margin:0 auto 14px;background:linear-gradient(135deg,var(--amber),var(--amber-deep));display:grid;place-items:center;color:#fff;font-weight:900;font-size:22px;box-shadow:0 8px 20px -8px rgba(226,20,20,.7)}
+  .auth-card h2{font-size:20px;font-weight:800;letter-spacing:.04em}
+  .auth-card p{color:var(--ink-dim);font-size:13px;margin:6px 0 20px}
+  .auth-card .field{text-align:left}
+  .auth-msg{font-size:12.5px;min-height:16px;margin:2px 0 12px;color:var(--ink-dim)}
+  .auth-alt{display:flex;justify-content:space-between;margin-top:14px}
+  .linkbtn{background:none;border:none;color:var(--ink-dim);font-family:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0}
+  .linkbtn:hover{color:var(--amber)}
+
   .month-pick{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 14px}
   .month-pick span{font-size:13px;color:var(--ink-dim);font-weight:600}
   .month-pick input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 10px;font-family:'Spline Sans Mono',monospace;font-size:13px}
@@ -241,6 +254,7 @@
       <button class="btn btn-sm btn-ghost" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export manuel</button>
       <label class="btn btn-sm btn-ghost" style="cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg>Importer<input type="file" accept="application/json" style="display:none" onchange="importData(event)"></label>
       <div class="save-state"><span class="dot" id="saveDot"></span><span id="saveTxt">Données enregistrées</span></div>
+      <div class="save-state" id="cloudState" style="display:none"><span class="dot" id="cloudDot"></span><span id="cloudTxt">Cloud</span></div>
     </div>
   </nav>
 
@@ -248,6 +262,7 @@
 </div>
 
 <div class="scrim" id="scrim"></div>
+<div class="auth-overlay" id="authOverlay"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -316,6 +331,7 @@ function saveDB(){
   } else {
     afterLocalSave(localOK);
   }
+  scheduleCloudSync();   // synchro Supabase (no-op si non configuré / non connecté)
 }
 function afterLocalSave(localOK){
   if(autosaveOn && fileHandle){ scheduleFileWrite(localOK); }
@@ -894,6 +910,23 @@ function viewSettings(m){
         <span style="color:var(--ink-faint)">Disponible sur Chrome et Edge. Sur les autres navigateurs, utilise « Export manuel » régulièrement.</span>
       </p>
     </div>
+    <div class="set-card" style="margin-top:16px">
+      <h4>Cloud Firebase</h4>
+      ${cloudEnabled ? `<p style="font-size:13px;color:var(--ink-dim);line-height:1.7">
+          ${cloudUser
+            ? `Connecté : <b style="color:var(--ink)">${esc(cloudUser.email||'')}</b>.<br>Chaque modification est envoyée <b style="color:var(--ink)">automatiquement</b> dans Firestore — tes données sont accessibles depuis n'importe quel appareil.`
+            : `Non connecté — tes données ne sont pas synchronisées pour l'instant.`}
+        </p>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          ${cloudUser
+            ? '<button class="btn btn-ghost" onclick="cloudLogout()">Se déconnecter</button>'
+            : '<button class="btn btn-amber" onclick="showLogin()">Se connecter</button>'}
+        </div>`
+        : `<p style="font-size:13px;color:var(--ink-dim);line-height:1.7">
+            Non configuré. Renseigne <span class="mono">FIREBASE_CONFIG</span> en haut du script du fichier
+            (voir <span class="mono">site/README.md</span>) pour synchroniser tes données dans le cloud, en permanence.
+          </p>`}
+    </div>
     <div style="margin-top:20px;display:flex;gap:10px"><button class="btn btn-amber" onclick="saveSettings()">Enregistrer les réglages</button>
       <button class="btn btn-danger btn-ghost" onclick="resetAll()">Tout réinitialiser</button></div>`;
 }
@@ -1012,6 +1045,124 @@ function importData(ev){
   r.readAsText(file); ev.target.value='';
 }
 
+// ============================ FIREBASE (cloud — toujours enregistré) ============================
+// 1) Crée un projet sur https://console.firebase.google.com
+// 2) Ajoute une app Web ( </> ) : copie l'objet firebaseConfig fourni ci-dessous.
+// 3) Build → Authentication → Sign-in method : active « E-mail/Mot de passe ».
+// 4) Build → Firestore Database : crée la base, puis colle les règles données dans site/README.md.
+// Laisse apiKey vide pour rester 100 % local (comme avant).
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",       // ex : mon-garage.firebaseapp.com
+  projectId: "",        // ex : mon-garage
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+const cloudEnabled = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
+let fb=null, cloudUser=null, cloudSyncTimer=null;   // fb = { auth, db, authApi, fsApi }
+
+function updateCloudUI(state){
+  const box=document.getElementById('cloudState'), dot=document.getElementById('cloudDot'), txt=document.getElementById('cloudTxt');
+  if(!box) return;
+  if(!cloudEnabled){ box.style.display='none'; return; }
+  box.style.display='flex';
+  const map={
+    offline:['var(--ink-faint)','Cloud : hors-ligne'],
+    login:  ['var(--amber)','Cloud : connexion requise'],
+    saving: ['var(--amber)','Cloud : envoi…'],
+    online: ['var(--green)','Cloud : synchronisé ✓'],
+    error:  ['var(--red)','Cloud : erreur de synchro']
+  };
+  const [c,t]=map[state]||map.offline; dot.style.background=c; txt.textContent=t;
+}
+function cloudErr(e){ return e && e.code ? e.code.replace('auth/','').replace(/-/g,' ') : 'erreur'; }
+
+async function initCloud(){
+  if(!cloudEnabled){ updateCloudUI(); return; }
+  updateCloudUI('login');
+  try{
+    const appMod  = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
+    const authMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js');
+    const fsMod   = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js');
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    fb = { auth:authMod.getAuth(app), db:fsMod.getFirestore(app), authApi:authMod, fsApi:fsMod };
+    // Le listener gère connexion ET déconnexion (persistance de session incluse).
+    authMod.onAuthStateChanged(fb.auth, async (user)=>{
+      cloudUser = user;
+      if(user){
+        document.getElementById('authOverlay').classList.remove('show');
+        await pullFromCloud(); render(); updateCloudUI('online');
+      }else{
+        showLogin();
+      }
+    });
+  }catch(e){ updateCloudUI('error'); toast('Cloud indisponible — mode local'); }
+}
+
+// Récupère l'état stocké dans le cloud (source de vérité au démarrage).
+async function pullFromCloud(){
+  if(!fb||!cloudUser) return;
+  try{
+    const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
+    const snap = await fb.fsApi.getDoc(ref);
+    if(snap.exists() && snap.data().data){
+      applyLoaded(snap.data().data);                    // stocké en JSON (string)
+      try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
+    }else{
+      // Première connexion : on pousse l'état local actuel vers le cloud.
+      await fb.fsApi.setDoc(ref, { data:JSON.stringify(DB), updatedAt:Date.now() });
+    }
+  }catch(e){}
+}
+
+// Envoi automatique (débounce) vers le cloud à chaque modification.
+function scheduleCloudSync(){
+  if(!fb||!cloudUser) return;
+  updateCloudUI('saving');
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer=setTimeout(async()=>{
+    try{
+      const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
+      await fb.fsApi.setDoc(ref, { data:JSON.stringify(DB), updatedAt:Date.now() });
+      updateCloudUI('online');
+    }catch(e){ updateCloudUI('error'); }
+  },600);
+}
+
+function showLogin(){
+  updateCloudUI('login');
+  const el=document.getElementById('authOverlay');
+  el.innerHTML=`<div class="auth-card">
+    <div class="auth-logo">IA</div>
+    <h2>INSTANTAUTO</h2>
+    <p>Connecte-toi pour synchroniser tes données dans le cloud.</p>
+    <div class="field"><label>Email</label><input id="au-email" type="email" autocomplete="username" placeholder="toi@email.fr"></div>
+    <div class="field"><label>Mot de passe</label><input id="au-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="au-msg" class="auth-msg"></div>
+    <button class="btn btn-amber" style="width:100%;justify-content:center" onclick="doLogin()">Se connecter</button>
+    <div class="auth-alt"><button class="linkbtn" onclick="doSignup()">Créer un compte</button><button class="linkbtn" onclick="skipLogin()">Continuer hors-ligne</button></div>
+  </div>`;
+  el.classList.add('show');
+}
+function authMsg(t,err){ const m=document.getElementById('au-msg'); if(m){ m.textContent=t; m.style.color=err?'var(--red)':'var(--ink-dim)'; } }
+async function doLogin(){
+  const email=val('au-email').trim(), password=val('au-pass');
+  if(!email||!password){ authMsg('Email et mot de passe requis',true); return; }
+  authMsg('Connexion…');
+  try{ await fb.authApi.signInWithEmailAndPassword(fb.auth, email, password); toast('Connecté au cloud'); }
+  catch(e){ authMsg(cloudErr(e),true); }   // le listener onAuthStateChanged prend le relais en cas de succès
+}
+async function doSignup(){
+  const email=val('au-email').trim(), password=val('au-pass');
+  if(!email||password.length<6){ authMsg('Mot de passe : 6 caractères minimum',true); return; }
+  authMsg('Création du compte…');
+  try{ await fb.authApi.createUserWithEmailAndPassword(fb.auth, email, password); toast('Compte créé'); }
+  catch(e){ authMsg(cloudErr(e),true); }
+}
+function skipLogin(){ document.getElementById('authOverlay').classList.remove('show'); updateCloudUI('offline'); toast('Mode local (pas de synchro cloud)'); }
+async function cloudLogout(){ if(!fb) return; try{ await fb.authApi.signOut(fb.auth); toast('Déconnecté'); }catch(e){} }
+
 // ============================ BOOT ============================
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
@@ -1023,6 +1174,8 @@ setSaveState('ok');
 loadDB().then(()=>{ render(); }).catch(()=>{});
 // 3) Restore the auto-backup file handle (paused until the user re-authorises with a click).
 restoreAutosave();
+// 4) Connexion au cloud Firebase (si configuré) : synchro auto à chaque modification.
+initCloud();
 </script>
 </body>
 </html>
