@@ -534,7 +534,63 @@ function viewDashboard(m){
         ${recentInvoices()}
       </div>
     </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-lbl">Bénéfice net par mois — à partir de 07/2026 (axe Y à partir de 500 €)</div>
+      ${benefitChart()}
+    </div>
   `;
+}
+
+// ---- Graphique bénéfice net par mois (SVG, sans dépendance) ----
+function addMonths(monthStr,n){
+  const [y,m]=monthStr.split('-').map(Number);
+  const idx=y*12+(m-1)+n;
+  return `${Math.floor(idx/12)}-${String(idx%12+1).padStart(2,'0')}`;
+}
+function monthLabel(monthStr){ const [y,m]=monthStr.split('-'); return `${m}/${y.slice(2)}`; }
+function monthlyNet(monthStr){
+  const s=DB.settings;
+  const ca = DB.invoices.filter(i=>inMonth(i.date,monthStr)).reduce((a,i)=>a+invoiceTotal(i),0);
+  const parts = DB.parts.filter(p=>inMonth(p.date,monthStr)).reduce((a,p)=>a+(+p.qty||0)*(+p.pu||0),0);
+  const extras = DB.extras.filter(e=>inMonth(e.date,monthStr)).reduce((a,e)=>a+(+e.qty||0)*(+e.pu||0),0);
+  return ca - extras - (+s.fixed) - parts;   // même calcul que le bénéfice net du tableau de bord
+}
+function benefitChart(){
+  const START='2026-07', N=12, FLOOR=500;                 // axe X dès 07/2026 · axe Y dès 500 €
+  const months=[]; for(let i=0;i<N;i++) months.push(addMonths(START,i));
+  const vals=months.map(monthlyNet);
+  const niceMax=Math.max(1000, Math.ceil(Math.max(...vals,FLOOR)/500)*500);
+  const W=760,H=290, pl=60,pr=18,pt=18,pb=42, cw=W-pl-pr, ch=H-pt-pb;
+  const x=i=>pl+(cw/N)*(i+0.5);
+  const bw=Math.min(34, cw/N*0.55);
+  const yFor=v=>{ const c=Math.max(FLOOR,Math.min(niceMax,v)); return pt+ch*(1-(c-FLOOR)/(niceMax-FLOOR)); };
+  const steps=5; let grid='';
+  for(let g=0; g<=steps; g++){
+    const v=FLOOR+(niceMax-FLOOR)*g/steps, yy=pt+ch*(1-g/steps);
+    grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#2d2d34" stroke-width="1"/>`+
+      `<text x="${pl-9}" y="${yy+4}" text-anchor="end" font-size="11" fill="#66666f" font-family="'Spline Sans Mono',monospace">${euro0(v)}</text>`;
+  }
+  let bars='';
+  months.forEach((mo,i)=>{
+    const v=vals[i], bx=x(i)-bw/2, by=yFor(v), bh=Math.max(0,pt+ch-by);
+    if(v>=FLOOR){
+      bars+=`<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="4" fill="url(#benGrad)"/>`+
+        `<text x="${x(i)}" y="${by-6}" text-anchor="middle" font-size="10.5" fill="#f3f4f6" font-family="'Spline Sans Mono',monospace">${euro0(v)}</text>`;
+    }else{
+      // mois sous le seuil de 500 € : repère au ras de l'axe + valeur réelle en gris
+      bars+=`<line x1="${bx}" y1="${pt+ch}" x2="${bx+bw}" y2="${pt+ch}" stroke="#66666f" stroke-width="3"/>`+
+        `<text x="${x(i)}" y="${pt+ch-6}" text-anchor="middle" font-size="10" fill="#66666f" font-family="'Spline Sans Mono',monospace">${euro0(v)}</text>`;
+    }
+    bars+=`<text x="${x(i)}" y="${H-14}" text-anchor="middle" font-size="11" fill="#a4a4ae" font-family="'Spline Sans Mono',monospace">${monthLabel(mo)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+    <defs><linearGradient id="benGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e21414"/><stop offset="1" stop-color="#b30f0f"/></linearGradient></defs>
+    ${grid}
+    <line x1="${pl}" y1="${pt+ch}" x2="${W-pr}" y2="${pt+ch}" stroke="#2d2d34" stroke-width="1.5"/>
+    ${bars}
+  </svg>`;
 }
 const depLine=(l,v)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;color:var(--ink-dim)"><span>${l}</span><span class="mono" style="color:var(--ink)">${v}</span></div>`;
 function recentInvoices(){
