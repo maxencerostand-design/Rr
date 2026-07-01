@@ -509,10 +509,7 @@ function viewDashboard(m){
       <div class="month-pick"><span>Mois</span><input type="month" value="${dashMonth}" onchange="dashMonth=this.value;render()"></div>
     </div>
 
-    <div class="banner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-      <div>Tes données sont enregistrées automatiquement dans ce navigateur, sur cet ordinateur. Pour ne rien risquer, active la <b>Sauvegarde auto</b> (en bas à gauche) : chaque modification est aussi écrite <b>en direct dans un fichier</b> de ton choix. À défaut, clique de temps en temps sur <b>Export manuel</b> pour obtenir un fichier de secours ré-importable.</div>
-    </div>
+    ${dashBanner()}
 
     <div class="gauge-wrap">
       <div class="gauge-top">
@@ -556,6 +553,26 @@ function viewDashboard(m){
       ${benefitChart()}
     </div>
   `;
+}
+
+// ---- Bandeau d'info du tableau de bord (adapté à l'état de sauvegarde) ----
+function dashBanner(){
+  if(cloudEnabled && cloudUser){
+    return `<div class="banner" style="background:linear-gradient(100deg,rgba(55,196,109,.12),rgba(55,196,109,.03));border-color:rgba(55,196,109,.3);color:#bfeccd">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#37c46d" stroke-width="2" style="color:#37c46d"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="m9 15 2 2 4-4"/></svg>
+      <div><b style="color:#37c46d">Synchronisé dans le cloud.</b> Tes données sont enregistrées automatiquement à chaque modification et accessibles depuis tous tes appareils. Rien à faire — tu peux fermer l'app quand tu veux.</div>
+    </div>`;
+  }
+  if(cloudEnabled){
+    return `<div class="banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      <div>Tu n'es pas connecté au cloud : tes données restent enregistrées dans ce navigateur, mais ne sont pas synchronisées. Connecte-toi (Réglages → Cloud) pour les sauvegarder en ligne.</div>
+    </div>`;
+  }
+  return `<div class="banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      <div>Tes données sont enregistrées automatiquement dans ce navigateur, sur cet ordinateur. Pour ne rien risquer, active la <b>Sauvegarde auto</b> (en bas à gauche) : chaque modification est aussi écrite <b>en direct dans un fichier</b> de ton choix. À défaut, clique de temps en temps sur <b>Export manuel</b> pour obtenir un fichier de secours ré-importable.</div>
+    </div>`;
 }
 
 // ---- Graphique bénéfice net par mois (SVG, sans dépendance) ----
