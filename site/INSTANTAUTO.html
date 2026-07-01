@@ -1052,12 +1052,12 @@ function importData(ev){
 // 4) Build → Firestore Database : crée la base, puis colle les règles données dans site/README.md.
 // Laisse apiKey vide pour rester 100 % local (comme avant).
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",       // ex : mon-garage.firebaseapp.com
-  projectId: "",        // ex : mon-garage
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyD6BMpJoj7tBjCO-ftn6_hGOMkkbOcmwU",
+  authDomain: "instantautoapp.firebaseapp.com",
+  projectId: "instantautoapp",
+  storageBucket: "instantautoapp.firebasestorage.app",
+  messagingSenderId: "1099163557096",
+  appId: "1:1099163557096:web:230e1316868696c9f5fd5d"
 };
 const cloudEnabled = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
 let fb=null, cloudUser=null, cloudSyncTimer=null;   // fb = { auth, db, authApi, fsApi }
