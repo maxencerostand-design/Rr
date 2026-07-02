@@ -925,10 +925,11 @@ function partsTable(rows){
   if(!rows.length) return emptyState('Aucune pièce','Note tes achats de pièces et leur prix.');
   const mg=1+(+DB.settings.margin||0)/100;
   const sorted=[...rows].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  return `<table><thead><tr><th>Date</th><th>Pièce</th><th>Fournisseur</th><th class="num">Qté</th><th class="num">P.U.</th><th class="num">Total achat</th><th class="num">Revente client</th><th></th></tr></thead><tbody>
+  return `<table><thead><tr><th>Date</th><th>Pièce</th><th>Véhicule / modèle</th><th>Fournisseur</th><th class="num">Qté</th><th class="num">P.U.</th><th class="num">Total achat</th><th class="num">Revente client</th><th></th></tr></thead><tbody>
     ${sorted.map(p=>{const tot=(+p.qty||0)*(+p.pu||0);return `<tr>
       <td class="mono" style="color:var(--ink-dim)">${frDate(p.date)}</td>
       <td style="font-weight:600">${esc(p.name)}</td>
+      <td style="color:var(--ink-dim)">${esc(p.model)||'—'}</td>
       <td style="color:var(--ink-dim)">${esc(p.supplier||'—')}</td>
       <td class="num">${esc(p.qty)}</td>
       <td class="num mono">${euro(p.pu)}</td>
@@ -941,15 +942,16 @@ function partsTable(rows){
   </tbody></table>`;
 }
 function editPart(id){
-  const p = id ? DB.parts.find(x=>x.id===id) : {id:uid(),date:todayISO(),name:'',supplier:'',qty:1,pu:''};
+  const p = id ? DB.parts.find(x=>x.id===id) : {id:uid(),date:todayISO(),name:'',model:'',supplier:'',qty:1,pu:''};
   openModal(`${id?'Modifier':'Nouvel'} achat de pièce`,`
     <div class="frow"><div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(p.date)}"></div>
       <div class="field"><label>Fournisseur</label><input id="f-sup" value="${esc(p.supplier)}" placeholder="Oscaro, Autodistribution…"></div></div>
     <div class="field"><label>Pièce / référence</label><input id="f-name" value="${esc(p.name)}" placeholder="Kit distribution"></div>
+    <div class="field"><label>Véhicule / modèle <span style="color:var(--ink-faint);font-weight:400">(pour t'y retrouver : quelle voiture / client)</span></label><input id="f-model" value="${esc(p.model||'')}" placeholder="Ex. Peugeot 308 — Jean Dupont / AB-123-CD"></div>
     <div class="frow"><div class="field"><label>Quantité</label><input id="f-qty" class="mono" type="number" step="1" value="${esc(p.qty)}"></div>
       <div class="field"><label>Prix unitaire (€)</label><input id="f-pu" class="mono" type="number" step="0.01" value="${esc(p.pu)}"></div></div>`,
     ()=>{
-      p.date=val('f-date'); p.supplier=val('f-sup'); p.name=val('f-name').trim(); p.qty=val('f-qty'); p.pu=val('f-pu');
+      p.date=val('f-date'); p.supplier=val('f-sup'); p.name=val('f-name').trim(); p.model=val('f-model'); p.qty=val('f-qty'); p.pu=val('f-pu');
       if(!p.name){ toast('Indique le nom de la pièce'); return false; }
       if(!id) DB.parts.push(p); saveDB(); render(); toast('Enregistré'); return true;
     });
