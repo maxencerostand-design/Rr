@@ -1153,16 +1153,28 @@ async function pullFromCloud(){
   try{
     const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
     const snap = await fb.fsApi.getDoc(ref);
-    if(snap.exists() && snap.data().data){
-      lastSyncedJSON = snap.data().data;                // stocké en JSON (string)
-      applyLoaded(lastSyncedJSON);
+    const cloudRaw = (snap.exists() && snap.data().data) ? snap.data().data : null;
+    let cloudObj=null; try{ cloudObj = cloudRaw ? JSON.parse(cloudRaw) : null; }catch(e){}
+    if(cloudRaw && !dbIsEmpty(cloudObj)){
+      // Le cloud a des données -> source de vérité.
+      lastSyncedJSON = cloudRaw;
+      applyLoaded(cloudRaw);
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
-    }else{
-      // Première connexion : on pousse l'état local actuel vers le cloud.
+    }else if(!dbIsEmpty(DB)){
+      // Cloud vide (ou absent) mais on a des données locales -> on PROTÈGE : on pousse le local.
       lastSyncedJSON = JSON.stringify(DB);
       await fb.fsApi.setDoc(ref, { data:lastSyncedJSON, updatedAt:Date.now() });
+    }else if(cloudRaw){
+      // Tout est vide des deux côtés : on s'aligne sur le cloud sans rien casser.
+      lastSyncedJSON = cloudRaw; applyLoaded(cloudRaw);
     }
   }catch(e){}
+}
+// Une base est "vide" si elle ne contient ni client, ni facture, ni pièce, ni consommable.
+function dbIsEmpty(d){
+  if(!d) return true;
+  return (d.clients||[]).length===0 && (d.invoices||[]).length===0 &&
+         (d.parts||[]).length===0 && (d.extras||[]).length===0;
 }
 
 // Écoute en temps réel : toute modification faite sur un autre appareil arrive ici.
@@ -1174,6 +1186,8 @@ function startRealtimeSync(){
     if(!snap.exists()) return;
     const raw = snap.data().data;
     if(!raw || raw===lastSyncedJSON) return;            // rien de nouveau (ou notre propre écriture)
+    // Protection anti-effacement : ne jamais se laisser vider par une version vide si on a des données.
+    try{ const incoming=JSON.parse(raw); if(dbIsEmpty(incoming) && !dbIsEmpty(DB)) return; }catch(e){ return; }
     // Ne pas écraser un formulaire ouvert : on applique à sa fermeture.
     if(document.getElementById('scrim').classList.contains('show')){ pendingRemote=raw; return; }
     applyRemote(raw);
