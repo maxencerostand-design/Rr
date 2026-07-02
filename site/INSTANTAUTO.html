@@ -689,21 +689,22 @@ function clientsTable(rows){
   </tbody></table>`;
 }
 function editClient(id){
-  const c = id ? DB.clients.find(x=>x.id===id) : {id:uid(),name:'',phone:'',addr:'',plate:'',model:'',km:'',kind:'Particulier'};
+  const c = id ? DB.clients.find(x=>x.id===id) : {id:uid(),name:'',phone:'',email:'',addr:'',plate:'',model:'',km:'',kind:'Particulier'};
   openModal(`${id?'Modifier':'Nouvelle'} fiche client`, `
     <div class="field"><label>Nom du client</label><input id="f-name" value="${esc(c.name)}" placeholder="Nom et prénom"></div>
     <div class="frow">
       <div class="field"><label>Téléphone</label><input id="f-phone" class="mono" value="${esc(c.phone)}" placeholder="06 12 34 56 78"></div>
       <div class="field"><label>Type</label><select id="f-kind"><option ${c.kind==='Particulier'?'selected':''}>Particulier</option><option ${c.kind==='Professionnel'?'selected':''}>Professionnel</option></select></div>
     </div>
-    <div class="field"><label>Adresse / Email</label><input id="f-addr" value="${esc(c.addr)}" placeholder="Adresse postale ou email"></div>
+    <div class="field"><label>Email</label><input id="f-email" type="email" value="${esc(c.email||'')}" placeholder="jean.dupont@email.fr"></div>
+    <div class="field"><label>Adresse postale</label><input id="f-addr" value="${esc(c.addr)}" placeholder="12 rue des Oliviers, 13011 Marseille"></div>
     <div class="frow-3">
       <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(c.plate)}" placeholder="AB-123-CD" style="text-transform:uppercase"></div>
       <div class="field"><label>Modèle</label><input id="f-model" value="${esc(c.model)}" placeholder="Peugeot 308"></div>
       <div class="field"><label>Kilométrage</label><input id="f-km" class="mono" type="number" value="${esc(c.km)}" placeholder="145000"></div>
     </div>`,
     ()=>{
-      c.name=val('f-name').trim(); c.phone=val('f-phone'); c.kind=val('f-kind'); c.addr=val('f-addr');
+      c.name=val('f-name').trim(); c.phone=val('f-phone'); c.kind=val('f-kind'); c.email=val('f-email'); c.addr=val('f-addr');
       c.plate=val('f-plate').toUpperCase(); c.model=val('f-model'); c.km=val('f-km');
       if(!c.name){ toast('Indique au moins le nom du client'); return false; }
       if(!id) DB.clients.push(c);
@@ -1149,6 +1150,7 @@ function printDoc(d, isQuote){
           <div class="pty"><h3>${isQuote?'Devis pour':'Facturé à'}</h3>
             <div class="big">${esc(d.client||'—')}</div>
             ${client.phone?`<div class="l">${esc(client.phone)}</div>`:''}
+            ${client.email?`<div class="l">${esc(client.email)}</div>`:''}
             ${client.addr?`<div class="l">${esc(client.addr)}</div>`:''}</div>
           <div class="pty"><h3>Véhicule</h3>
             <div class="big">${esc(d.plate||client.plate||'—')}</div>
