@@ -471,7 +471,10 @@ function workdaysElapsed(monthStr){
 function inMonth(iso,monthStr){ return iso && iso.slice(0,7)===monthStr; }
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-function closeModal(){ document.getElementById('scrim').classList.remove('show'); document.getElementById('scrim').innerHTML=''; }
+function closeModal(){
+  document.getElementById('scrim').classList.remove('show'); document.getElementById('scrim').innerHTML='';
+  if(pendingRemote){ const r=pendingRemote; pendingRemote=null; applyRemote(r); }   // applique une màj distante reçue pendant l'édition
+}
 
 // ============================ ROUTER ============================
 document.querySelectorAll('.navlink').forEach(l=>l.addEventListener('click',()=>{
@@ -1101,6 +1104,7 @@ const FIREBASE_CONFIG = {
 };
 const cloudEnabled = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
 let fb=null, cloudUser=null, cloudSyncTimer=null;   // fb = { auth, db, authApi, fsApi }
+let cloudUnsub=null, lastSyncedJSON=null, pendingRemote=null;   // temps réel
 
 function updateCloudUI(state){
   const box=document.getElementById('cloudState'), dot=document.getElementById('cloudDot'), txt=document.getElementById('cloudTxt');
@@ -1134,7 +1138,9 @@ async function initCloud(){
       if(user){
         document.getElementById('authOverlay').classList.remove('show');
         await pullFromCloud(); render(); updateCloudUI('online');
+        startRealtimeSync();
       }else{
+        if(cloudUnsub){ cloudUnsub(); cloudUnsub=null; }
         showLogin();
       }
     });
@@ -1148,13 +1154,37 @@ async function pullFromCloud(){
     const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
     const snap = await fb.fsApi.getDoc(ref);
     if(snap.exists() && snap.data().data){
-      applyLoaded(snap.data().data);                    // stocké en JSON (string)
+      lastSyncedJSON = snap.data().data;                // stocké en JSON (string)
+      applyLoaded(lastSyncedJSON);
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
     }else{
       // Première connexion : on pousse l'état local actuel vers le cloud.
-      await fb.fsApi.setDoc(ref, { data:JSON.stringify(DB), updatedAt:Date.now() });
+      lastSyncedJSON = JSON.stringify(DB);
+      await fb.fsApi.setDoc(ref, { data:lastSyncedJSON, updatedAt:Date.now() });
     }
   }catch(e){}
+}
+
+// Écoute en temps réel : toute modification faite sur un autre appareil arrive ici.
+function startRealtimeSync(){
+  if(!fb||!cloudUser) return;
+  if(cloudUnsub){ cloudUnsub(); cloudUnsub=null; }
+  const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
+  cloudUnsub = fb.fsApi.onSnapshot(ref, (snap)=>{
+    if(!snap.exists()) return;
+    const raw = snap.data().data;
+    if(!raw || raw===lastSyncedJSON) return;            // rien de nouveau (ou notre propre écriture)
+    // Ne pas écraser un formulaire ouvert : on applique à sa fermeture.
+    if(document.getElementById('scrim').classList.contains('show')){ pendingRemote=raw; return; }
+    applyRemote(raw);
+  }, ()=>updateCloudUI('error'));
+}
+function applyRemote(raw){
+  lastSyncedJSON = raw;
+  applyLoaded(raw);
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
+  render(); updateCloudUI('online');
+  toast('Mis à jour depuis un autre appareil');
 }
 
 // Envoi automatique (débounce) vers le cloud à chaque modification.
@@ -1165,7 +1195,9 @@ function scheduleCloudSync(){
   cloudSyncTimer=setTimeout(async()=>{
     try{
       const ref = fb.fsApi.doc(fb.db,'app_state',cloudUser.uid);
-      await fb.fsApi.setDoc(ref, { data:JSON.stringify(DB), updatedAt:Date.now() });
+      const payload = JSON.stringify(DB);
+      lastSyncedJSON = payload;   // évite que notre propre écriture ne revienne comme "changement distant"
+      await fb.fsApi.setDoc(ref, { data:payload, updatedAt:Date.now() });
       updateCloudUI('online');
     }catch(e){ updateCloudUI('error'); }
   },600);
