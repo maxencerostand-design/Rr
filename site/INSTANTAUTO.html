@@ -1075,61 +1075,105 @@ function printDoc(d, isQuote){
   const s=DB.settings; const client=DB.clients.find(c=>c.id===d.clientId)||{};
   const km = d.km||client.km;
   const title = isQuote ? 'DEVIS' : 'FACTURE';
-  const rows=(d.lines||[]).map(l=>{const r=rateFor(l.type);const isMO=r>0;
-    return `<tr><td>${esc(l.desc||'')}</td><td>${esc(l.type)}</td><td style="text-align:center">${esc(l.qty||'')}${isMO?' h':''}</td>
-    <td style="text-align:right">${euro(isMO?r:(+l.pu||0))}</td><td style="text-align:right">${euro(lineAmount(l))}</td></tr>`;}).join('');
+  const rows=(d.lines||[]).map((l,i)=>{const r=rateFor(l.type);const isMO=r>0;
+    return `<tr class="${i%2?'alt':''}">
+      <td class="desc"><b>${esc(l.desc||'—')}</b><span class="tp">${isMO?esc(l.type)+" · main-d'œuvre":esc(l.type)}</span></td>
+      <td class="c">${esc(l.qty||'')}${isMO?' h':''}</td>
+      <td class="r">${euro(isMO?r:(+l.pu||0))}</td>
+      <td class="r amt">${euro(lineAmount(l))}</td></tr>`;}).join('');
   const total=invoiceTotal(d);
-  const legal = isQuote
-    ? `<b>Devis gratuit et sans engagement.</b> Valable 30 jours à compter de la date d'émission. Ne vaut pas facture.<br>
-       TVA non applicable, art. 293 B du CGI. Auto-entrepreneur dispensé d'immatriculation au RCS et au répertoire des métiers.`
-    : `<b>TVA non applicable, art. 293 B du CGI.</b><br>
-       Auto-entrepreneur — dispensé d'immatriculation au RCS et au répertoire des métiers.<br>
-       Paiement à réception. Pénalités de retard au taux légal ; indemnité forfaitaire de recouvrement 40 € (professionnels).<br>
-       Merci de votre confiance.`;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(d.number)}</title>
+  const terms = isQuote
+    ? "Devis gratuit et sans engagement, valable 30 jours à compter de la date d'émission. Ne vaut pas facture. TVA non applicable (art. 293 B du CGI)."
+    : "Paiement à réception. TVA non applicable (art. 293 B du CGI). Auto-entrepreneur dispensé d'immatriculation au RCS. Indemnité forfaitaire de recouvrement 40 € pour les professionnels.";
+  const gear=(st)=>`<svg class="gear" style="${st}" viewBox="0 0 24 24" fill="none" stroke="#e7e9ee" stroke-width="1.1"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+  const w=window.open('','_blank'); if(!w){ toast('Autorise les fenêtres pop-up pour imprimer'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(d.number)} — ${title}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1d23;padding:42px 46px;font-size:13px;line-height:1.5}
-    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #e21414;padding-bottom:20px;margin-bottom:6px}
-    .gar h1{font-size:27px;letter-spacing:1px;color:#111}
-    .gar p{color:#555;font-size:12px;margin-top:3px}
-    .inv-meta{text-align:right}
-    .inv-meta .big{font-size:22px;font-weight:800;color:#e21414;letter-spacing:2px}
-    .inv-meta table{margin-top:8px;margin-left:auto;font-size:12px}
-    .inv-meta td{padding:2px 0 2px 14px;text-align:right}
-    .inv-meta td:first-child{color:#888;text-align:left}
-    .blocks{display:flex;gap:30px;margin:26px 0 18px}
-    .blk{flex:1;background:#f6f7f9;border-radius:8px;padding:14px 16px}
-    .blk h3{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:8px}
-    .blk .l{font-size:13px;margin:2px 0}
-    table.items{width:100%;border-collapse:collapse;margin-top:10px}
-    table.items th{background:#141417;color:#fff;text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
-    table.items th:nth-child(n+3){text-align:right}
-    table.items td{padding:10px 12px;border-bottom:1px solid #eee}
-    .tot{display:flex;justify-content:flex-end;margin-top:14px}
-    .tot .box{min-width:240px}
-    .tot .row{display:flex;justify-content:space-between;padding:7px 12px}
-    .tot .grand{background:#e21414;color:#fff;border-radius:7px;font-size:17px;font-weight:800}
-    .legal{margin-top:34px;padding-top:16px;border-top:1px solid #ddd;color:#777;font-size:11px;line-height:1.7}
-    .legal b{color:#c0392b}
-    @media print{body{padding:20px}}
-    .logo-print{height:66px;border-radius:7px;display:block;margin-bottom:10px}
+    html,body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#20242c}
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+    .page{position:relative;max-width:840px;margin:0 auto;overflow:hidden;background:#fff}
+    .gear{position:absolute;z-index:0}
+    .stripe{position:absolute;top:34px;left:0;width:150px;height:28px;z-index:0;background:repeating-linear-gradient(-45deg,#20242c 0 9px,#fff 9px 18px)}
+    .content{position:relative;z-index:2;padding:46px 48px 0}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+    .brand img{height:70px;border-radius:8px;display:block;background:#0b0b0d;padding:8px 14px}
+    .brand .m{font-size:11px;color:#7a828f;margin-top:9px;line-height:1.6;max-width:260px}
+    .brand .m b{color:#20242c}
+    .ttl{text-align:right;flex:none}
+    .ttl h1{font-size:44px;font-weight:800;letter-spacing:2px;color:#e21414;line-height:1}
+    .ttl .meta{margin-top:10px;font-size:12.5px;color:#5c6470}
+    .ttl .meta b{color:#20242c}
+    .parties{display:flex;gap:16px;margin-top:28px}
+    .pty{flex:1;background:#f5f6f8;border-left:3px solid #e21414;border-radius:8px;padding:13px 16px}
+    .pty h3{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#e21414;font-weight:800;margin-bottom:7px}
+    .pty .big{font-weight:700;font-size:14px;color:#20242c}
+    .pty .l{font-size:12.5px;color:#586070;margin-top:3px}
+    table{width:100%;border-collapse:collapse;margin-top:26px;font-size:13px}
+    thead th{background:linear-gradient(90deg,#20242c,#333945);color:#fff;text-transform:uppercase;font-size:10.5px;letter-spacing:.7px;padding:12px 14px;text-align:left}
+    thead th.c{text-align:center;width:78px} thead th.r{text-align:right;width:112px}
+    tbody td{padding:12px 14px;border-bottom:1px solid #edeff2;vertical-align:middle}
+    tbody tr.alt td{background:#f8f9fb}
+    td.c{text-align:center;color:#586070} td.r{text-align:right;font-variant-numeric:tabular-nums}
+    td.amt{font-weight:700}
+    td.desc .tp{display:block;font-size:10px;color:#98a0ad;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:3px}
+    .bottom{display:flex;justify-content:space-between;gap:26px;margin-top:26px;align-items:flex-start}
+    .terms{max-width:360px}
+    .terms h4{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#20242c;font-weight:800;margin-bottom:7px}
+    .terms p{font-size:11.5px;color:#6b7280;line-height:1.7}
+    .totbox{min-width:262px;border:1px solid #e6e8ec;border-radius:10px;overflow:hidden}
+    .totbox .r{display:flex;justify-content:space-between;padding:11px 18px;font-size:13px;color:#586070}
+    .totbox .r span:last-child{font-variant-numeric:tabular-nums;color:#20242c;font-weight:600}
+    .totbox .grand{display:flex;justify-content:space-between;background:#20242c;color:#fff;padding:14px 18px;font-weight:800;font-size:17px}
+    .totbox .grand span:last-child{color:#ff5a52}
+    .sign{margin-top:16px}
+    .sign .line{height:46px;border:1px dashed #c3c8d0;border-radius:8px;margin-top:6px}
+    .legal{position:relative;z-index:2;margin:30px 48px 0;padding-top:14px;border-top:1px solid #e6e8ec;font-size:10px;color:#9aa1ad;line-height:1.7}
+    .foot{position:relative;z-index:2;padding:16px 48px 12px;text-align:right}
+    .foot .thanks{font-size:14px;font-weight:800;color:#20242c;letter-spacing:.3px}
+    .band{height:30px;background:repeating-linear-gradient(-45deg,#20242c 0 14px,#e21414 14px 28px)}
+    @media print{@page{margin:6mm}}
   </style></head><body>
-    <div class="top">
-      <div class="gar"><img src="${LOGO}" class="logo-print" alt="INSTANT'AUTO"><p>${esc(s.address||'')}</p><p>SIRET : ${esc(s.siret||'—')}</p></div>
-      <div class="inv-meta"><div class="big">${title}</div>
-        <table><tr><td>N°</td><td>${esc(d.number)}</td></tr><tr><td>Date</td><td>${frDate(d.date)}</td></tr></table></div>
+    <div class="page">
+      <div class="stripe"></div>
+      ${gear('top:-26px;right:24px;width:132px;height:132px')}
+      ${gear('top:66px;right:118px;width:76px;height:76px')}
+      ${gear('bottom:150px;left:-30px;width:118px;height:118px')}
+      <div class="content">
+        <div class="head">
+          <div class="brand"><img src="${LOGO}" alt="INSTANT'AUTO">
+            <div class="m"><b>${esc(s.name||"INSTANT'AUTO")}</b><br>${esc(s.address||'')}<br>SIRET : ${esc(s.siret||'—')}</div></div>
+          <div class="ttl"><h1>${title}</h1>
+            <div class="meta">N° <b>${esc(d.number)}</b><br>Date : <b>${frDate(d.date)}</b></div></div>
+        </div>
+        <div class="parties">
+          <div class="pty"><h3>${isQuote?'Devis pour':'Facturé à'}</h3>
+            <div class="big">${esc(d.client||'—')}</div>
+            ${client.phone?`<div class="l">${esc(client.phone)}</div>`:''}
+            ${client.addr?`<div class="l">${esc(client.addr)}</div>`:''}</div>
+          <div class="pty"><h3>Véhicule</h3>
+            <div class="big">${esc(d.plate||client.plate||'—')}</div>
+            ${client.model?`<div class="l">${esc(client.model)}</div>`:''}
+            ${km?`<div class="l">${(+km).toLocaleString('fr-FR')} km</div>`:''}</div>
+        </div>
+        <table>
+          <thead><tr><th>Désignation</th><th class="c">Qté / h</th><th class="r">P.U.</th><th class="r">Montant</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="bottom">
+          <div class="terms"><h4>Conditions &amp; règlement</h4><p>${terms}</p>
+            ${isQuote?'<div class="sign"><b style="font-size:11.5px">Bon pour accord — date &amp; signature :</b><div class="line"></div></div>':''}</div>
+          <div class="totbox">
+            <div class="r"><span>Sous-total</span><span>${euro(total)}</span></div>
+            <div class="r"><span>TVA</span><span>Non applicable</span></div>
+            <div class="grand"><span>TOTAL</span><span>${euro(total)}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="legal">${esc(s.name||"INSTANT'AUTO")} — ${esc(s.address||'')} · SIRET ${esc(s.siret||'—')}. ${isQuote?'Document non comptable.':'Facture à conserver.'}</div>
+      <div class="foot"><span class="thanks">Merci de votre confiance 🔧</span></div>
+      <div class="band"></div>
     </div>
-    <div class="blocks">
-      <div class="blk"><h3>Client</h3><div class="l"><b>${esc(d.client||'')}</b></div>
-        <div class="l">${esc(client.phone||'')}</div><div class="l">${esc(client.addr||'')}</div></div>
-      <div class="blk"><h3>Véhicule</h3><div class="l">${esc(d.plate||client.plate||'')}</div>
-        <div class="l">${esc(client.model||'')}</div><div class="l">${km?(+km).toLocaleString('fr-FR')+' km':''}</div></div>
-    </div>
-    <table class="items"><thead><tr><th>Désignation</th><th>Type</th><th>Qté / h</th><th>P.U.</th><th>Montant</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="tot"><div class="box"><div class="row grand"><span>TOTAL</span><span>${euro(total)}</span></div></div></div>
-    <div class="legal">${legal}${isQuote?'<div style="margin-top:26px">Signature :<div style="height:44px;border-bottom:1px solid #bbb;width:240px"></div></div>':''}</div>
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`);
   w.document.close();
