@@ -758,6 +758,12 @@ function editInvoice(id){
       <div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(inv.date)}"></div>
       <div class="field"><label>Réglé</label><select id="f-paid"><option ${inv.paid==='Non'?'selected':''}>Non</option><option ${inv.paid==='Oui'?'selected':''}>Oui</option></select></div>
     </div>
+    <div class="field"><label>Mode de paiement</label><select id="f-mode">
+      <option value="" ${!inv.mode?'selected':''}>— Non précisé —</option>
+      <option ${inv.mode==='Espèces'?'selected':''}>Espèces</option>
+      <option ${inv.mode==='Carte bancaire'?'selected':''}>Carte bancaire</option>
+      <option ${inv.mode==='Virement'?'selected':''}>Virement</option>
+      <option ${inv.mode==='Chèque'?'selected':''}>Chèque</option></select></div>
     <div class="field"><label>Véhicule / client</label>
       <select id="f-client" onchange="onPickClient()"><option value="">— choisis un véhicule —</option>${opts}</select>
       <div class="hint">${DB.clients.length?'Sélectionne pour remplir le client automatiquement.':'Aucun client encore. Tu peux taper le nom à la main ci-dessous.'}</div>
@@ -775,7 +781,7 @@ function editInvoice(id){
     </div>
     <div class="li-total"><span class="lbl">Total</span><span class="val" id="li-total">0,00 €</span></div>`,
     ()=>{
-      inv.number=val('f-num'); inv.date=val('f-date'); inv.paid=val('f-paid');
+      inv.number=val('f-num'); inv.date=val('f-date'); inv.paid=val('f-paid'); inv.mode=val('f-mode');
       inv.clientId=val('f-client'); inv.client=val('f-cname').trim(); inv.plate=val('f-plate').toUpperCase(); inv.km=val('f-km');
       inv.lines=modalLines.filter(l=>l.desc||l.qty||l.pu);
       if(!inv.client){ toast('Indique le nom du client'); return false; }
@@ -1014,29 +1020,19 @@ function drawTotals(month){
 function viewDraws(m){
   const month=drawMonth;
   const t=drawTotals(month);
-  const benef=monthlyNet(month);
-  const reste=benef-t.all;
   m.innerHTML=`
     <div class="page-head">
       <div><div class="eyebrow">TRÉSORERIE</div><h2>Argent sorti</h2>
-        <p>Ce que Maxence et Hedi ont retiré ce mois-ci, et ce qu'il reste à se partager.</p></div>
+        <p>Ce que Maxence et Hedi ont retiré ce mois-ci.</p></div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <div class="month-pick"><span>Mois</span><input type="month" value="${month}" onchange="drawMonth=this.value;render()"></div>
         <button class="btn btn-amber" onclick="editDraw()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouveau retrait</button>
       </div>
     </div>
-    <div class="kpi-row">
+    <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi"><div class="v mono">${euro0(t.max)}</div><div class="l">Maxence · sorti</div></div>
       <div class="kpi"><div class="v mono">${euro0(t.hedi)}</div><div class="l">Hedi · sorti</div></div>
       <div class="kpi"><div class="v mono">${euro0(t.all)}</div><div class="l">Total sorti · mois</div></div>
-      <div class="kpi"><div class="v mono ${reste>=0?'pos':'neg'}">${euro0(reste)}</div><div class="l">Reste à se partager</div></div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div style="font-size:13px;color:var(--ink-dim);line-height:1.9">
-        Bénéfice net du mois : <b class="mono" style="color:var(--ink)">${euro0(benef)}</b><br>
-        − Argent déjà sorti : <b class="mono" style="color:var(--ink)">${euro0(t.all)}</b> (Maxence ${euro0(t.max)} · Hedi ${euro0(t.hedi)})<br>
-        = <b>Reste à se partager :</b> <b class="mono" style="color:${reste>=0?'var(--green)':'var(--red)'};font-size:16px">${euro0(reste)}</b>
-      </div>
     </div>
     <div class="tbl-wrap" id="dr-wrap" style="margin-top:16px">${drawsTable(t.list)}</div>`;
 }
@@ -1235,6 +1231,7 @@ function printDoc(d, isQuote){
             <div class="r"><span>Sous-total</span><span>${euro(total)}</span></div>
             <div class="r"><span>TVA</span><span>Non applicable</span></div>
             <div class="grand"><span>TOTAL</span><span>${euro(total)}</span></div>
+            ${(!isQuote && d.mode)?`<div class="r" style="border-top:1px solid #edeff2"><span>Réglé par</span><span style="color:#20242c;font-weight:700">${esc(d.mode)}</span></div>`:''}
           </div>
         </div>
       </div>
