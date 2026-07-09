@@ -703,7 +703,7 @@ function editClient(id){
     <div class="field"><label>Email</label><input id="f-email" type="email" value="${esc(c.email||'')}" placeholder="jean.dupont@email.fr"></div>
     <div class="field"><label>Adresse postale</label><input id="f-addr" value="${esc(c.addr)}" placeholder="12 rue des Oliviers, 13011 Marseille"></div>
     <div class="frow-3">
-      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(c.plate)}" placeholder="AB-123-CD" style="text-transform:uppercase"></div>
+      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(c.plate)}" placeholder="AB-123-CD" style="text-transform:uppercase" oninput="formatPlate(this)"></div>
       <div class="field"><label>Modèle</label><input id="f-model" value="${esc(c.model)}" placeholder="Peugeot 308"></div>
       <div class="field"><label>Kilométrage</label><input id="f-km" class="mono" type="number" value="${esc(c.km)}" placeholder="145000"></div>
     </div>`,
@@ -749,8 +749,10 @@ function invoicesTable(rows){
 let modalLines=[];
 function editInvoice(id){
   const inv = id ? DB.invoices.find(x=>x.id===id)
-                 : {id:uid(), number:String(DB.seq), date:todayISO(), clientId:'', client:'', plate:'', km:'', model:'', paid:'Non', mode:'', lines:[{type:'T1',desc:'',qty:'',pu:''}]};
+                 : {id:uid(), number:String(DB.seq), date:todayISO(), clientId:'', client:'', phone:'', email:'', addr:'', plate:'', km:'', model:'', paid:'Non', mode:'', lines:[{type:'T1',desc:'',qty:'',pu:''}]};
   modalLines = JSON.parse(JSON.stringify(inv.lines&&inv.lines.length?inv.lines:[{type:'T1',desc:'',qty:'',pu:''}]));
+  const lc = DB.clients.find(c=>c.id===inv.clientId)||{};
+  const vPhone=inv.phone||lc.phone||'', vEmail=inv.email||lc.email||'', vAddr=inv.addr||lc.addr||'', vModel=inv.model||lc.model||'';
   const opts = DB.clients.map(c=>`<option value="${c.id}" ${c.id===inv.clientId?'selected':''}>${esc(c.name)} — ${esc(c.plate||'')}</option>`).join('');
   openModal(`${id?'Modifier':'Nouvelle'} facture`, `
     <div class="frow-3">
@@ -764,12 +766,16 @@ function editInvoice(id){
       <option ${inv.mode==='Carte bancaire'?'selected':''}>Carte bancaire</option>
       <option ${inv.mode==='Virement'?'selected':''}>Virement</option>
       <option ${inv.mode==='Chèque'?'selected':''}>Chèque</option></select></div>
-    <div class="field"><label>Véhicule / client</label>
-      <select id="f-client" onchange="onPickClient()"><option value="">— choisis un véhicule —</option>${opts}</select>
-      <div class="hint">${DB.clients.length?'Sélectionne pour remplir le client automatiquement.':'Aucun client encore. Tu peux taper le nom à la main ci-dessous.'}</div>
+    <div class="field"><label>Client existant (ta base de données)</label>
+      <select id="f-client" onchange="onPickClient()"><option value="">— Nouveau client / choisir —</option>${opts}</select>
+      <div class="hint">Choisis un client pour pré-remplir, ou laisse « Nouveau » et saisis-le ci-dessous : il sera ajouté à ta base clients automatiquement.</div>
     </div>
-    <div class="frow-3"><div class="field"><label>Client (nom sur la facture)</label><input id="f-cname" value="${esc(inv.client)}"></div>
-      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(inv.plate)}" style="text-transform:uppercase"></div>
+    <div class="frow"><div class="field"><label>Nom du client</label><input id="f-cname" value="${esc(inv.client)}" placeholder="Nom et prénom"></div>
+      <div class="field"><label>Téléphone</label><input id="f-phone" class="mono" value="${esc(vPhone)}" placeholder="06 12 34 56 78"></div></div>
+    <div class="frow"><div class="field"><label>Email</label><input id="f-email" type="email" value="${esc(vEmail)}" placeholder="jean.dupont@email.fr"></div>
+      <div class="field"><label>Adresse postale</label><input id="f-addr" value="${esc(vAddr)}" placeholder="12 rue des Oliviers, Marseille"></div></div>
+    <div class="frow-3"><div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(inv.plate)}" style="text-transform:uppercase" oninput="formatPlate(this)" placeholder="AB-123-CD"></div>
+      <div class="field"><label>Modèle</label><input id="f-model" value="${esc(vModel)}" placeholder="Renault Clio IV"></div>
       <div class="field"><label>Kilométrage</label><input id="f-km" class="mono" type="number" value="${esc(inv.km||'')}" placeholder="145000"></div></div>
     <div style="margin:18px 0 6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);font-weight:700">Prestations & pièces</div>
     <div class="hint" style="margin-bottom:10px">Choisis le <b style="color:var(--ink)">Type</b> sur chaque ligne : main-d'œuvre (Diagnostic, T1, T2, T3 → tu mets les heures, le prix se calcule au taux) ou <b style="color:var(--ink)">Pièce</b> (tu mets quantité + prix unitaire).</div>
@@ -782,10 +788,13 @@ function editInvoice(id){
     <div class="li-total"><span class="lbl">Total</span><span class="val" id="li-total">0,00 €</span></div>`,
     ()=>{
       inv.number=val('f-num'); inv.date=val('f-date'); inv.paid=val('f-paid'); inv.mode=val('f-mode');
-      inv.clientId=val('f-client'); inv.client=val('f-cname').trim(); inv.plate=val('f-plate').toUpperCase(); inv.km=val('f-km');
+      inv.clientId=val('f-client'); inv.client=val('f-cname').trim();
+      inv.phone=val('f-phone'); inv.email=val('f-email'); inv.addr=val('f-addr');
+      inv.plate=val('f-plate').toUpperCase(); inv.model=val('f-model'); inv.km=val('f-km');
       inv.lines=modalLines.filter(l=>l.desc||l.qty||l.pu);
       if(!inv.client){ toast('Indique le nom du client'); return false; }
       if(!inv.lines.length){ toast('Ajoute au moins une prestation'); return false; }
+      upsertClientFromDoc(inv);   // crée/met à jour la fiche client dans la base
       if(!id){ DB.invoices.push(inv); DB.seq++; }
       saveDB(); render(); toast(id?'Facture modifiée':'Facture créée'); return true;
     });
@@ -793,11 +802,28 @@ function editInvoice(id){
 }
 function onPickClient(){
   const c=DB.clients.find(x=>x.id===val('f-client'));
+  if(!c) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
+  set('f-cname',c.name); set('f-phone',c.phone); set('f-email',c.email); set('f-addr',c.addr);
+  set('f-plate',c.plate); set('f-model',c.model); set('f-km',c.km);
+}
+// Formate l'immatriculation en direct : AB123CD -> AB-123-CD
+function formatPlate(el){
+  const v=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7);
+  el.value=[v.slice(0,2),v.slice(2,5),v.slice(5,7)].filter(Boolean).join('-');
+}
+// Crée ou met à jour la fiche client à partir d'une facture/devis.
+function upsertClientFromDoc(d){
+  if(!d.client) return;
+  const c = d.clientId ? DB.clients.find(x=>x.id===d.clientId) : null;
   if(c){
-    document.getElementById('f-cname').value=c.name;
-    document.getElementById('f-plate').value=c.plate||'';
-    const kmEl=document.getElementById('f-km'); if(kmEl && !kmEl.value) kmEl.value=c.km||'';
+    c.name=d.client;
+    if(d.phone)c.phone=d.phone; if(d.email)c.email=d.email; if(d.addr)c.addr=d.addr;
+    if(d.plate)c.plate=d.plate; if(d.model)c.model=d.model; if(d.km)c.km=d.km;
+    return;
   }
+  const nc={id:uid(),name:d.client,phone:d.phone||'',email:d.email||'',addr:d.addr||'',plate:d.plate||'',model:d.model||'',km:d.km||'',kind:'Particulier'};
+  DB.clients.push(nc); d.clientId=nc.id;
 }
 function addLine(){ modalLines.push({type:'Pièce',desc:'',qty:'',pu:''}); renderLines(); }
 function addLineType(t){ modalLines.push({type:t,desc:'',qty:'',pu:''}); renderLines();
@@ -887,7 +913,7 @@ function editQuote(id){
       <div class="hint">${DB.clients.length?'Sélectionne pour remplir le client automatiquement.':'Aucun client encore. Tu peux taper le nom à la main ci-dessous.'}</div>
     </div>
     <div class="frow-3"><div class="field"><label>Client</label><input id="f-cname" value="${esc(q.client)}"></div>
-      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(q.plate)}" style="text-transform:uppercase"></div>
+      <div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(q.plate)}" style="text-transform:uppercase" oninput="formatPlate(this)" placeholder="AB-123-CD"></div>
       <div class="field"><label>Kilométrage</label><input id="f-km" class="mono" type="number" value="${esc(q.km||'')}" placeholder="145000"></div></div>
     <div style="margin:18px 0 6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);font-weight:700">Prestations & pièces</div>
     <div class="li-head"><span>Désignation</span><span>Type</span><span>Qté / h</span><span>Prix unitaire</span><span style="text-align:right">Montant</span><span></span></div>
@@ -1139,7 +1165,8 @@ function printQuote(id){ printDoc(DB.quotes.find(x=>x.id===id), true); }
 function printDoc(d, isQuote){
   if(!d) return;
   const s=DB.settings; const client=DB.clients.find(c=>c.id===d.clientId)||{};
-  const km = d.km||client.km;
+  const cName=d.client||client.name||'', cPhone=d.phone||client.phone||'', cEmail=d.email||client.email||'', cAddr=d.addr||client.addr||'';
+  const cPlate=d.plate||client.plate||'', cModel=d.model||client.model||'', km=d.km||client.km;
   const title = isQuote ? 'DEVIS' : 'FACTURE';
   const rows=(d.lines||[]).map((l,i)=>{const r=rateFor(l.type);const isMO=r>0;
     return `<tr class="${i%2?'alt':''}">
@@ -1211,13 +1238,13 @@ function printDoc(d, isQuote){
         </div>
         <div class="parties">
           <div class="pty"><h3>${isQuote?'Devis pour':'Facturé à'}</h3>
-            <div class="big">${esc(d.client||'—')}</div>
-            ${client.phone?`<div class="l">${esc(client.phone)}</div>`:''}
-            ${client.email?`<div class="l">${esc(client.email)}</div>`:''}
-            ${client.addr?`<div class="l">${esc(client.addr)}</div>`:''}</div>
+            <div class="big">${esc(cName||'—')}</div>
+            ${cPhone?`<div class="l">${esc(cPhone)}</div>`:''}
+            ${cEmail?`<div class="l">${esc(cEmail)}</div>`:''}
+            ${cAddr?`<div class="l">${esc(cAddr)}</div>`:''}</div>
           <div class="pty"><h3>Véhicule</h3>
-            <div class="big">${esc(d.plate||client.plate||'—')}</div>
-            ${client.model?`<div class="l">${esc(client.model)}</div>`:''}
+            <div class="big">${esc(cPlate||'—')}</div>
+            ${cModel?`<div class="l">${esc(cModel)}</div>`:''}
             ${km?`<div class="l">${(+km).toLocaleString('fr-FR')} km</div>`:''}</div>
         </div>
         <table>
