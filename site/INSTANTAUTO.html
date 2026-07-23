@@ -760,6 +760,7 @@ function invoicesTable(rows){
       <td><span class="tag ${(i.paid==='Oui')?'tag-paid':'tag-unpaid'}">${i.paid==='Oui'?'Payé':'À encaisser'}</span></td>
       <td><div class="row-act">
         <button class="iconbtn" onclick='printInvoice(${JSON.stringify(i.id)})' title="Imprimer / PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg></button>
+        <button class="iconbtn" onclick='downloadInvoice(${JSON.stringify(i.id)})' title="Télécharger (pour envoyer par mail)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
         <button class="iconbtn" onclick='editInvoice(${JSON.stringify(i.id)})' title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
         <button class="iconbtn del" onclick='delItem("invoices",${JSON.stringify(i.id)})' title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div></td></tr>`).join('')}
@@ -788,12 +789,12 @@ function editInvoice(id){
       <option ${inv.mode==='Carte bancaire'?'selected':''}>Carte bancaire</option>
       <option ${inv.mode==='Virement'?'selected':''}>Virement</option>
       <option ${inv.mode==='Chèque'?'selected':''}>Chèque</option></select></div>
-    <div class="field"><label>Client existant (ta base de données)</label>
-      <select id="f-client" onchange="onPickClient()"><option value="">— Nouveau client / choisir —</option>${opts}</select>
-      <div class="hint">Choisis un client pour pré-remplir, ou laisse « Nouveau » et saisis-le ci-dessous : il sera ajouté à ta base clients automatiquement.</div>
-    </div>
-    <div class="frow"><div class="field"><label>Nom du client</label><input id="f-cname" value="${esc(inv.client)}" placeholder="Nom et prénom"></div>
+    <input type="hidden" id="f-client" value="${esc(inv.clientId||'')}">
+    <datalist id="clientlist">${DB.clients.map(c=>`<option value="${esc(c.name)}">${esc([c.plate,c.phone].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>
+    <div class="frow"><div class="field"><label>Nom du client <span style="color:var(--ink-faint);font-weight:400">— tape pour chercher un client</span></label>
+      <input id="f-cname" list="clientlist" autocomplete="off" value="${esc(inv.client)}" placeholder="Nom et prénom" oninput="onClientName()"></div>
       <div class="field"><label>Téléphone</label><input id="f-phone" class="mono" value="${esc(vPhone)}" placeholder="06 12 34 56 78"></div></div>
+    <div class="hint" style="margin:-6px 0 12px">Un nom déjà connu remplit tout automatiquement. Un nouveau nom sera ajouté à ta base clients.</div>
     <div class="frow"><div class="field"><label>Email</label><input id="f-email" type="email" value="${esc(vEmail)}" placeholder="jean.dupont@email.fr"></div>
       <div class="field"><label>Adresse postale</label><input id="f-addr" value="${esc(vAddr)}" placeholder="12 rue des Oliviers, Marseille"></div></div>
     <div class="frow-3"><div class="field"><label>Immatriculation</label><input id="f-plate" class="mono" value="${esc(inv.plate)}" style="text-transform:uppercase" oninput="formatPlate(this)" placeholder="AB-123-CD"></div>
@@ -830,6 +831,17 @@ function onPickClient(){
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
   set('f-cname',c.name); set('f-phone',c.phone); set('f-email',c.email); set('f-addr',c.addr);
   set('f-plate',c.plate); set('f-model',c.model); set('f-km',c.km);
+}
+function fillClientFields(c){
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
+  set('f-phone',c.phone); set('f-email',c.email); set('f-addr',c.addr); set('f-plate',c.plate); set('f-model',c.model); set('f-km',c.km);
+}
+// Le champ Nom de la facture sert de recherche : un nom connu remplit la fiche.
+function onClientName(){
+  const name=(val('f-cname')||'').trim().toLowerCase();
+  const c=name?DB.clients.find(x=>(x.name||'').trim().toLowerCase()===name):null;
+  const hid=document.getElementById('f-client'); if(hid) hid.value=c?c.id:'';
+  if(c) fillClientFields(c);
 }
 // Formate l'immatriculation en direct : AB123CD -> AB-123-CD
 function formatPlate(el){
@@ -918,6 +930,7 @@ function quotesTable(rows){
       <td class="num" style="font-weight:700">${euro0(invoiceTotal(i))}</td>
       <td><div class="row-act">
         <button class="iconbtn" onclick='printQuote(${JSON.stringify(i.id)})' title="Imprimer / PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg></button>
+        <button class="iconbtn" onclick='downloadQuote(${JSON.stringify(i.id)})' title="Télécharger (pour envoyer par mail)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
         <button class="iconbtn" onclick='quoteToInvoice(${JSON.stringify(i.id)})' title="Transformer en facture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         <button class="iconbtn" onclick='editQuote(${JSON.stringify(i.id)})' title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
         <button class="iconbtn del" onclick='delItem("quotes",${JSON.stringify(i.id)})' title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
@@ -1189,10 +1202,20 @@ function resetAll(){
 }
 
 // ============================ INVOICE PRINT ============================
-function printInvoice(id){ printDoc(DB.invoices.find(x=>x.id===id), false); }
-function printQuote(id){ printDoc(DB.quotes.find(x=>x.id===id), true); }
-function printDoc(d, isQuote){
+function printInvoice(id){ openPrint(DB.invoices.find(x=>x.id===id), false); }
+function printQuote(id){ openPrint(DB.quotes.find(x=>x.id===id), true); }
+function downloadInvoice(id){ downloadDoc(DB.invoices.find(x=>x.id===id), false); }
+function downloadQuote(id){ downloadDoc(DB.quotes.find(x=>x.id===id), true); }
+function openPrint(d,isQuote){ if(!d) return; const w=window.open('','_blank'); if(!w){ toast('Autorise les fenêtres pop-up pour imprimer'); return; } w.document.write(buildDoc(d,isQuote,true)); w.document.close(); }
+function downloadDoc(d,isQuote){
   if(!d) return;
+  const who=(d.client||'client').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'');
+  const blob=new Blob([buildDoc(d,isQuote,false)],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(isQuote?'Devis_':'Facture_')+(d.number||'')+(who?'_'+who:'')+'.html';
+  a.click(); URL.revokeObjectURL(a.href); toast(isQuote?'Devis téléchargé':'Facture téléchargée');
+}
+function buildDoc(d, isQuote, autoPrint){
   const s=DB.settings; const client=DB.clients.find(c=>c.id===d.clientId)||{};
   const cName=d.client||client.name||'', cPhone=d.phone||client.phone||'', cEmail=d.email||client.email||'', cAddr=d.addr||client.addr||'';
   const cPlate=d.plate||client.plate||'', cModel=d.model||client.model||'', km=d.km||client.km;
@@ -1208,8 +1231,7 @@ function printDoc(d, isQuote){
     ? "Devis gratuit et sans engagement, valable 30 jours à compter de la date d'émission. Ne vaut pas facture. TVA non applicable (art. 293 B du CGI)."
     : "Paiement à réception. TVA non applicable (art. 293 B du CGI). Auto-entrepreneur dispensé d'immatriculation au RCS. Indemnité forfaitaire de recouvrement 40 € pour les professionnels.";
   const gear=(st)=>`<svg class="gear" style="${st}" viewBox="0 0 24 24" fill="none" stroke="#e7e9ee" stroke-width="1.1"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-  const w=window.open('','_blank'); if(!w){ toast('Autorise les fenêtres pop-up pour imprimer'); return; }
-  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(d.number)} — ${title}</title>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(d.number)} — ${title}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#20242c}
@@ -1294,9 +1316,8 @@ function printDoc(d, isQuote){
       <div class="legal">${esc(s.name||"INSTANT'AUTO")} · SIRET ${esc(s.siret||'—')}. ${isQuote?'Document non comptable.':'Facture à conserver.'}</div>
       <div class="foot"><span class="thanks">Merci de votre confiance 🔧</span></div>
     </div>
-    <script>window.onload=()=>window.print()<\/script>
-  </body></html>`);
-  w.document.close();
+    ${autoPrint?'<script>window.onload=()=>window.print()<\/script>':''}
+  </body></html>`;
 }
 
 // ============================ MODAL CORE ============================
