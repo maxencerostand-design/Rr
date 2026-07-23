@@ -283,6 +283,7 @@ let DB = JSON.parse(JSON.stringify(DEFAULTS));
 let currentView='dashboard';
 let dashMonth = new Date().toISOString().slice(0,7);
 let drawMonth = new Date().toISOString().slice(0,7);
+let draftType = null;   // 'invoice' | 'quote' quand un brouillon est en cours d'édition
 
 const STORE_KEY='instantauto:db';
 // Detect the artifact storage API; fall back to browser localStorage when the
@@ -477,9 +478,27 @@ function inMonth(iso,monthStr){ return iso && iso.slice(0,7)===monthStr; }
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function closeModal(){
+  draftType=null;
   document.getElementById('scrim').classList.remove('show'); document.getElementById('scrim').innerHTML='';
   if(pendingRemote){ const r=pendingRemote; pendingRemote=null; applyRemote(r); }   // applique une màj distante reçue pendant l'édition
 }
+
+// ---------- Brouillon (mémoire du dernier document non enregistré) ----------
+function loadDraft(type){ try{ return JSON.parse(localStorage.getItem('instantauto:draft:'+type)); }catch(e){ return null; } }
+function clearDraft(type){ try{ localStorage.removeItem('instantauto:draft:'+type); }catch(e){} }
+function captureDraft(type){
+  if(!document.getElementById('scrim').classList.contains('show')) return;
+  const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
+  // On n'enregistre pas un brouillon totalement vide.
+  const hasLines = modalLines.some(l=>l.desc||l.qty||l.pu);
+  if(!g('f-cname') && !g('f-plate') && !hasLines) return;
+  const d={ ts:Date.now(), num:g('f-num'), date:g('f-date'), paid:g('f-paid'), mode:g('f-mode'),
+    clientId:g('f-client'), client:g('f-cname'), phone:g('f-phone'), email:g('f-email'), addr:g('f-addr'),
+    plate:g('f-plate'), model:g('f-model'), km:g('f-km'), lines:JSON.parse(JSON.stringify(modalLines)) };
+  try{ localStorage.setItem('instantauto:draft:'+type, JSON.stringify(d)); }catch(e){}
+}
+function discardDraft(type){ clearDraft(type); closeModal(); (type==='invoice'?editInvoice:editQuote)(); }
+const draftBanner = t => `<div style="background:rgba(226,20,20,.1);border:1px solid rgba(226,20,20,.3);border-radius:9px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:#f4c1c1">📝 Brouillon restauré (là où tu t'étais arrêté). <button class="linkbtn" style="color:#ff8080;font-weight:700" onclick="discardDraft('${t}')">Vider et repartir de zéro</button></div>`;
 
 // ============================ ROUTER ============================
 document.querySelectorAll('.navlink').forEach(l=>l.addEventListener('click',()=>{
@@ -748,13 +767,16 @@ function invoicesTable(rows){
 }
 let modalLines=[];
 function editInvoice(id){
+  const draft = id ? null : loadDraft('invoice');
   const inv = id ? DB.invoices.find(x=>x.id===id)
                  : {id:uid(), number:String(DB.seq), date:todayISO(), clientId:'', client:'', phone:'', email:'', addr:'', plate:'', km:'', model:'', paid:'Non', mode:'', lines:[{type:'T1',desc:'',qty:'',pu:''}]};
-  modalLines = JSON.parse(JSON.stringify(inv.lines&&inv.lines.length?inv.lines:[{type:'T1',desc:'',qty:'',pu:''}]));
+  if(draft){ inv.number=draft.num||inv.number; inv.date=draft.date||inv.date; inv.paid=draft.paid||inv.paid; inv.mode=draft.mode||''; inv.clientId=draft.clientId||''; inv.client=draft.client||''; inv.phone=draft.phone||''; inv.email=draft.email||''; inv.addr=draft.addr||''; inv.plate=draft.plate||''; inv.model=draft.model||''; inv.km=draft.km||''; }
+  modalLines = JSON.parse(JSON.stringify((draft&&draft.lines&&draft.lines.length)?draft.lines:(inv.lines&&inv.lines.length?inv.lines:[{type:'T1',desc:'',qty:'',pu:''}])));
   const lc = DB.clients.find(c=>c.id===inv.clientId)||{};
   const vPhone=inv.phone||lc.phone||'', vEmail=inv.email||lc.email||'', vAddr=inv.addr||lc.addr||'', vModel=inv.model||lc.model||'';
   const opts = DB.clients.map(c=>`<option value="${c.id}" ${c.id===inv.clientId?'selected':''}>${esc(c.name)} — ${esc(c.plate||'')}</option>`).join('');
   openModal(`${id?'Modifier':'Nouvelle'} facture`, `
+    ${draft?draftBanner('invoice'):''}
     <div class="frow-3">
       <div class="field"><label>N° facture</label><input id="f-num" class="mono" value="${esc(inv.number)}"></div>
       <div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(inv.date)}"></div>
@@ -796,9 +818,11 @@ function editInvoice(id){
       if(!inv.lines.length){ toast('Ajoute au moins une prestation'); return false; }
       upsertClientFromDoc(inv);   // crée/met à jour la fiche client dans la base
       if(!id){ DB.invoices.push(inv); DB.seq++; }
+      clearDraft('invoice');
       saveDB(); render(); toast(id?'Facture modifiée':'Facture créée'); return true;
     });
   renderLines();
+  draftType = id ? null : 'invoice';
 }
 function onPickClient(){
   const c=DB.clients.find(x=>x.id===val('f-client'));
@@ -901,11 +925,14 @@ function quotesTable(rows){
   </tbody></table>`;
 }
 function editQuote(id){
+  const draft = id ? null : loadDraft('quote');
   const q = id ? DB.quotes.find(x=>x.id===id)
                : {id:uid(), number:'DEV-'+String(DB.qseq).padStart(4,'0'), date:todayISO(), clientId:'', client:'', plate:'', km:'', lines:[{type:'T1',desc:'',qty:'',pu:''}]};
-  modalLines = JSON.parse(JSON.stringify(q.lines&&q.lines.length?q.lines:[{type:'T1',desc:'',qty:'',pu:''}]));
+  if(draft){ q.number=draft.num||q.number; q.date=draft.date||q.date; q.clientId=draft.clientId||''; q.client=draft.client||''; q.plate=draft.plate||''; q.km=draft.km||''; }
+  modalLines = JSON.parse(JSON.stringify((draft&&draft.lines&&draft.lines.length)?draft.lines:(q.lines&&q.lines.length?q.lines:[{type:'T1',desc:'',qty:'',pu:''}])));
   const opts = DB.clients.map(c=>`<option value="${c.id}" ${c.id===q.clientId?'selected':''}>${esc(c.name)} — ${esc(c.plate||'')}</option>`).join('');
   openModal(`${id?'Modifier':'Nouveau'} devis`, `
+    ${draft?draftBanner('quote'):''}
     <div class="frow"><div class="field"><label>N° devis</label><input id="f-num" class="mono" value="${esc(q.number)}"></div>
       <div class="field"><label>Date</label><input id="f-date" type="date" value="${esc(q.date)}"></div></div>
     <div class="field"><label>Véhicule / client</label>
@@ -930,9 +957,11 @@ function editQuote(id){
       if(!q.client){ toast('Indique le nom du client'); return false; }
       if(!q.lines.length){ toast('Ajoute au moins une prestation'); return false; }
       if(!id){ DB.quotes.push(q); DB.qseq++; }
+      clearDraft('quote');
       saveDB(); render(); toast(id?'Devis modifié':'Devis créé'); return true;
     });
   renderLines();
+  draftType = id ? null : 'quote';
 }
 function quoteToInvoice(id){
   const q=DB.quotes.find(x=>x.id===id); if(!q) return;
@@ -1479,6 +1508,8 @@ async function cloudLogout(){ if(!fb) return; try{ await fb.authApi.signOut(fb.a
 // ============================ BOOT ============================
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
+// Mémorise le brouillon en cours (facture/devis) à chaque saisie.
+['input','change'].forEach(ev=>document.getElementById('scrim').addEventListener(ev,()=>{ if(draftType) captureDraft(draftType); }));
 
 // 0) Logo dans la barre latérale.
 (function(){ const b=document.getElementById('brandLogo'); if(b) b.src=LOGO; })();
