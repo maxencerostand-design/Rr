@@ -279,7 +279,7 @@
 // ============================ STATE ============================
 const DEFAULTS = {
   settings:{
-    name:"INSTANTAUTO", address:"710 Route de Marseille", siret:"",
+    name:"INSTANT'AUTO", address:"710 route de Marseille, 13400 Aubagne", siret:"",
     rateDiag:70, rateT1:70, rateT2:80, rateT3:90,
     fixed:950, salary:0, days:25, margin:30
   },
@@ -307,6 +307,8 @@ function applyLoaded(raw){
     if(!DB._migr_nosalary){ DB.settings.salary = 0; DB._migr_nosalary = true; }
     // One-time: la numérotation des factures démarre à 159 (comme si beaucoup avaient déjà été faites).
     if(!DB._seq159){ if((+DB.seq||0) < 159) DB.seq = 159; DB._seq159 = true; }
+    // One-time: adresse du garage (modifiable ensuite dans Réglages).
+    if(!DB._addr_aubagne){ DB.settings.address='710 route de Marseille, 13400 Aubagne'; DB._addr_aubagne=true; }
   }catch(e){ /* corrupt data: keep defaults */ }
 }
 
@@ -1295,16 +1297,18 @@ function buildDoc(d, isQuote, autoPrint){
     .legal{position:relative;z-index:2;margin:30px 48px 0;padding-top:14px;border-top:1px solid #e6e8ec;font-size:10px;color:#9aa1ad;line-height:1.7}
     .foot{position:relative;z-index:2;padding:16px 48px 12px;text-align:right}
     .foot .thanks{font-size:14px;font-weight:800;color:#20242c;letter-spacing:.3px}
+    .paidstamp{position:absolute;top:176px;right:70px;z-index:4;color:#e21414;border:4px double #e21414;border-radius:12px;padding:4px 20px 6px;font-size:34px;font-weight:900;letter-spacing:4px;text-transform:uppercase;transform:rotate(-15deg);opacity:.85}
     @media print{@page{margin:0}}
   </style></head><body>
     <div class="page">
       ${gear('top:-26px;right:24px;width:132px;height:132px')}
       ${gear('top:66px;right:118px;width:76px;height:76px')}
       ${gear('bottom:150px;left:-30px;width:118px;height:118px')}
+      ${(!isQuote && d.paid==='Oui')?'<div class="paidstamp">Payé</div>':''}
       <div class="content">
         <div class="head">
           <div class="brand"><img src="${LOGO}" alt="INSTANT'AUTO">
-            <div class="m"><b>${esc(s.name||"INSTANT'AUTO")}</b><br>SIRET : ${esc(s.siret||'—')}</div></div>
+            <div class="m"><b>${esc(s.name||"INSTANT'AUTO")}</b>${s.address?`<br>${esc(s.address)}`:''}<br>SIRET : ${esc(s.siret||'—')}</div></div>
           <div class="ttl"><h1>${title}</h1>
             <div class="meta">N° <b>${esc(d.number)}</b><br>Date : <b>${frDate(d.date)}</b></div></div>
         </div>
